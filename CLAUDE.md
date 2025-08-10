@@ -1,0 +1,214 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is a containerized web infrastructure blueprint using systemd containers (Podman) for orchestration. It provides a secure web server setup with authentication using Caddy and Authelia.
+
+## Key Technologies
+
+- **Caddy**: Web server with automatic HTTPS
+- **Authelia**: Authentication and authorization server  
+- **systemd containers**: Container orchestration (not Docker Compose)
+- **PostgreSQL**: Database backend for Authelia (external dependency)
+
+## Architecture
+
+The system consists of two main containers:
+1. **Caddy container**: Serves web traffic on ports 80/443 with socket activation
+2. **Authelia container**: Provides authentication services with SSO and MFA support
+
+## CLI Tool
+
+This project includes a TypeScript CLI tool called `blueprint` for scaffolding and managing deployments.
+
+### Installation and Development
+
+**Global Installation (Recommended)**:
+```bash
+# Install globally for system-wide access
+npm run install-global
+
+# Or use npm link for development
+npm run link
+
+# Uninstall
+npm run uninstall-global
+# or
+npm run unlink
+```
+
+**Local Development**:
+```bash
+# Build the CLI tool
+npm run build
+
+# Run in development mode
+npm run dev
+
+# Watch for changes during development
+npm run watch
+
+# Test the CLI locally
+node dist/index.js --help
+```
+
+**After global installation, use the CLI anywhere**:
+```bash
+blueprint --version  # Check installed version
+blueprint --help
+blueprint init --name my-app
+```
+
+### CLI Commands
+```bash
+# Initialize a new deployment
+blueprint init --name my-app --directory ./deployments
+
+# Manage services
+blueprint services list
+blueprint services start caddy
+blueprint services start authelia-postgres  # Authelia's dedicated PostgreSQL
+blueprint services start authelia
+blueprint services logs authelia-postgres -f
+
+# Manage authentication
+blueprint auth add-user --username john --email john@example.com
+blueprint auth list-users
+
+# Manage secrets
+blueprint secrets setup
+blueprint secrets show
+
+# Manage domains
+blueprint domain add --domain app.example.com --target http://localhost:3000
+blueprint domain list
+```
+
+## Common Commands
+
+### Container Management
+```bash
+# Start containers (as user, not root)
+systemctl --user start caddy.container
+systemctl --user start authelia-postgres.container  # Start database first
+systemctl --user start authelia.container
+
+# Check container status
+systemctl --user status caddy.container
+systemctl --user status authelia-postgres.container
+systemctl --user status authelia.container
+
+# View container logs
+journalctl --user -u caddy.container -f
+journalctl --user -u authelia-postgres.container -f
+journalctl --user -u authelia.container -f
+
+# Restart containers after config changes
+systemctl --user restart caddy.container
+systemctl --user restart authelia-postgres.container
+systemctl --user restart authelia.container
+
+# Enable containers to start on boot
+systemctl --user enable caddy.container
+systemctl --user enable authelia-postgres.container
+systemctl --user enable authelia.container
+```
+
+### Configuration Updates
+```bash
+# After modifying Caddyfile
+systemctl --user restart caddy.container
+
+# After modifying Authelia config
+systemctl --user restart authelia.container
+
+# Reload systemd units after modifying .container files
+systemctl --user daemon-reload
+```
+
+## Project Structure
+
+- `containers/`: All container definitions and configurations
+  - `*.container`: systemd container unit files
+  - `*.volume`: Volume definitions for persistent data
+  - `Caddyfile`: Caddy web server configuration
+  - `authelia-config/`: Authelia configuration files
+- `user/`: User-level systemd configurations (socket units)
+- `secrets.template/`: Template directory for secrets (currently empty)
+
+## Key Configuration Files
+
+### Caddy Configuration
+- **File**: `containers/Caddyfile`
+- **Purpose**: Defines web server routes, HTTPS settings, and reverse proxy rules
+- **Socket Activation**: Uses systemd socket at file descriptor 3
+
+### Authelia Configuration  
+- **File**: `containers/authelia-config/configuration.yml`
+- **Default User**: admin / changeme (change immediately in production)
+- **Users File**: `containers/authelia-config/users_database.yml`
+- **Features**: TOTP 2FA, session management, rate limiting
+
+## Development Workflow
+
+1. Modify configuration files in `containers/`
+2. Test changes locally using systemctl commands
+3. Use `systemctl --user daemon-reload` if modifying .container files
+4. Restart affected containers
+5. Check logs with journalctl for any issues
+
+## Secrets Management
+
+The CLI uses **file-based secrets** for better security:
+
+- Each secret is stored in a separate `.secret` file in the `secrets/` directory
+- Secret files have `600` permissions (owner read/write only)
+- systemd container units use `Secret=` directives to mount secrets as environment variables
+- Secret files are automatically excluded from git via `.gitignore`
+
+### Secret File Structure
+```
+secrets/
+├── authelia_jwt_secret.secret
+├── authelia_session_secret.secret
+├── authelia_storage_encryption_key.secret
+├── authelia_postgres_password.secret
+├── authelia_postgres_db.secret
+├── authelia_postgres_user.secret
+├── smtp_host.secret
+├── smtp_port.secret
+├── smtp_username.secret
+├── smtp_password.secret
+└── smtp_sender.secret
+```
+
+## Version Management
+
+The CLI uses semantic versioning (semver) to track changes:
+
+- **Patch releases** (1.1.X): Bug fixes, minor improvements
+- **Minor releases** (1.X.0): New features, backwards-compatible changes  
+- **Major releases** (X.0.0): Breaking changes (not used yet)
+
+**Current version**: Check with `blueprint --version`
+
+**Version History**:
+- `1.1.2`: Admin email now uses project domain automatically
+- `1.1.1`: Updated default SMTP provider to Mailgun EU
+- `1.1.0`: SMTP integration, file-based secrets, removed standalone services
+- `1.0.0`: Initial release with basic Caddy + Authelia setup
+
+## Important Notes
+
+- This uses systemd containers (Podman), NOT Docker or Docker Compose
+- All container commands should be run as user (--user flag), not root
+- Authelia automatically gets a dedicated PostgreSQL database (`authelia-postgres.container`)
+- HTTPS is always enabled with automatic certificates via Caddy
+- SMTP configuration is collected during `blueprint init` and used for all email notifications
+- File-based secrets provide better security than environment files
+- Install the CLI globally with `npm run install-global` to use `blueprint` commands anywhere
+- The `deploy.sh` script is currently empty and needs implementation
+- Socket activation is used for Caddy for efficient resource usage
+- Version bumping follows semver: patch for fixes, minor for features, no majors yet

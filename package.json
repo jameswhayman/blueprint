@@ -1,0 +1,40 @@
+{
+  "name": "blueprint",
+  "version": "1.1.2",
+  "main": "dist/index.js",
+  "bin": {
+    "blueprint": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "watch": "nodemon --exec tsx src/index.ts",
+    "clean": "rm -rf dist",
+    "install-global": "npm run build && npm install -g .",
+    "uninstall-global": "npm uninstall -g blueprint",
+    "link": "npm run build && npm link",
+    "unlink": "npm unlink -g blueprint",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": ["caddy", "authelia", "systemd", "containers", "deployment", "cli"],
+  "author": "",
+  "license": "ISC",
+  "description": "CLI tool for scaffolding containerized deployments with Caddy and Authelia",
+  "dependencies": {
+    "argon2": "^0.43.1",
+    "chalk": "^5.5.0",
+    "commander": "^14.0.0",
+    "dotenv": "^17.2.1",
+    "inquirer": "^12.9.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.9",
+    "@types/node": "^24.2.1",
+    "nodemon": "^3.1.10",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}

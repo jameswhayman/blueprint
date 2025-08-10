@@ -1,0 +1,11 @@
+[Container]
+Image=docker.io/authelia/authelia:4
+Exec=/usr/bin/authelia
+Volume=%h/.config/containers/systemd/authelia-config:/config:Z,ro
+Notify=true
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target

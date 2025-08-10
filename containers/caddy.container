@@ -1,0 +1,13 @@
+[Container]
+Image=docker.io/library/caddy:2-alpine
+Exec=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+Volume=%h/.config/containers/systemd/Caddyfile:/etc/caddy/Caddyfile:Z
+Volume=caddy-config.volume:/config
+Volume=caddy-data.volume:/data
+Notify=true
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
