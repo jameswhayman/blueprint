@@ -186,7 +186,7 @@ secrets/
 
 ## Version Management
 
-The CLI uses semantic versioning (semver) to track changes:
+The CLI uses semantic versioning (semver) to track changes with conventional commits:
 
 - **Patch releases** (1.1.X): Bug fixes, minor improvements
 - **Minor releases** (1.X.0): New features, backwards-compatible changes  
@@ -194,11 +194,49 @@ The CLI uses semantic versioning (semver) to track changes:
 
 **Current version**: Check with `blueprint --version`
 
-**Version History**:
-- `1.1.2`: Admin email now uses project domain automatically
-- `1.1.1`: Updated default SMTP provider to Mailgun EU
-- `1.1.0`: SMTP integration, file-based secrets, removed standalone services
-- `1.0.0`: Initial release with basic Caddy + Authelia setup
+### Conventional Commits
+
+Each version bump is accompanied by a conventional commit following the format:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+**Types used:**
+- `feat:` New features (minor version bump)
+- `fix:` Bug fixes (patch version bump)
+- `docs:` Documentation changes (patch version bump)
+- `refactor:` Code refactoring (patch version bump)
+
+**Examples:**
+```bash
+feat: add domain-aware email configuration
+
+fix: resolve SMTP connection timeout issues
+
+docs: update installation instructions for global CLI
+```
+
+### Version History with Commits
+
+- `v1.1.2`: Admin email now uses project domain automatically
+  - `feat: implement blueprint CLI with SMTP integration and domain-aware configuration`
+- `v1.1.1`: Updated default SMTP provider to Mailgun EU
+- `v1.1.0`: SMTP integration, file-based secrets, removed standalone services
+- `v1.0.0`: Initial release with basic Caddy + Authelia setup
+
+### Git Workflow
+
+```bash
+# After making changes and updating version in package.json
+git add .
+git commit -m "feat: add new deployment feature"
+git tag -a v1.2.0 -m "v1.2.0: Feature description"
+```
 
 ## Important Notes
 
