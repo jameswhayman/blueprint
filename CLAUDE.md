@@ -224,6 +224,8 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.2`: Improve password confirmation UX with retry loop
+  - `feat: add password confirmation retry loop when passwords don't match`
 - `v1.2.1`: Improve secrets implementation with file mounting and password confirmation
   - `feat: mount secrets as files instead of env vars, add password confirmation`
 - `v1.2.0`: Create initial admin user during initialization with strong password requirements
