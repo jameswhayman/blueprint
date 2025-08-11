@@ -16,7 +16,7 @@ export async function generateAutheliaConfig(deployDir: string, config: any) {
       level: 'info',
       format: 'text'
     },
-    jwt_secret: '${AUTHELIA_JWT_SECRET}',
+    jwt_secret_file: '/run/secrets/AUTHELIA_JWT_SECRET',
     default_redirection_url: `https://${config.domain}`,
     totp: {
       issuer: config.name
@@ -48,7 +48,7 @@ export async function generateAutheliaConfig(deployDir: string, config: any) {
     },
     session: {
       name: 'authelia_session',
-      secret: '${AUTHELIA_SESSION_SECRET}',
+      secret_file: '/run/secrets/AUTHELIA_SESSION_SECRET',
       expiration: '1h',
       inactivity: '5m',
       domain: config.domain
@@ -59,24 +59,24 @@ export async function generateAutheliaConfig(deployDir: string, config: any) {
       ban_time: '300s'
     },
     storage: {
-      encryption_key: '${AUTHELIA_STORAGE_ENCRYPTION_KEY}',
+      encryption_key_file: '/run/secrets/AUTHELIA_STORAGE_ENCRYPTION_KEY',
       postgres: {
         host: 'authelia-postgres',
         port: 5432,
-        database: '${AUTHELIA_POSTGRES_DB}',
-        username: '${AUTHELIA_POSTGRES_USER}',
-        password: '${AUTHELIA_POSTGRES_PASSWORD}',
+        database_file: '/run/secrets/AUTHELIA_POSTGRES_DB',
+        username_file: '/run/secrets/AUTHELIA_POSTGRES_USER',
+        password_file: '/run/secrets/AUTHELIA_POSTGRES_PASSWORD',
         sslmode: 'disable'
       }
     },
     notifier: {
       disable_startup_check: false,
       smtp: {
-        host: '${SMTP_HOST}',
-        port: '${SMTP_PORT}',
-        username: '${SMTP_USERNAME}',
-        password: '${SMTP_PASSWORD}',
-        sender: '${SMTP_SENDER}',
+        host_file: '/run/secrets/SMTP_HOST',
+        port_file: '/run/secrets/SMTP_PORT',
+        username_file: '/run/secrets/SMTP_USERNAME',
+        password_file: '/run/secrets/SMTP_PASSWORD',
+        sender_file: '/run/secrets/SMTP_SENDER',
         tls: {
           skip_verify: false,
           minimum_version: 'TLS1.2'

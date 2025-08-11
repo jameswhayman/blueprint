@@ -136,7 +136,8 @@ systemctl --user daemon-reload
   - `Caddyfile`: Caddy web server configuration
   - `authelia-config/`: Authelia configuration files
 - `user/`: User-level systemd configurations (socket units)
-- `secrets.template/`: Template directory for secrets (currently empty)
+- `secrets/`: All secret files (600 permissions)
+  - `*.secret`: Secret values referenced directly by Secret= directives
 
 ## Key Configuration Files
 
@@ -223,6 +224,8 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.1`: Improve secrets implementation with file mounting and password confirmation
+  - `feat: mount secrets as files instead of env vars, add password confirmation`
 - `v1.2.0`: Create initial admin user during initialization with strong password requirements
   - `feat: add admin user creation with strong password validation during init`
 - `v1.1.5`: From email address now uses Mailgun subdomain format (no-reply@mg.{domain})

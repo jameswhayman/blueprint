@@ -50,6 +50,7 @@ export const initCommand = new Command('init')
     };
 
     if (options.interactive !== false) {
+      // @ts-ignore - inquirer types are complex, but this works at runtime
       const answers = await inquirer.prompt([
         {
           type: 'input',
@@ -72,49 +73,60 @@ export const initCommand = new Command('init')
         },
         {
           type: 'input',
-          name: 'smtpHost',
-          message: 'SMTP Host:',
-          default: 'smtp.eu.mailgun.org',
-          validate: (input) => (input && input.length > 0) || 'SMTP host is required'
-        },
-        {
-          type: 'number',
-          name: 'smtpPort',
-          message: 'SMTP Port:',
-          default: 587,
-          validate: (input) => (input && input > 0 && input <= 65535) || 'Port must be between 1 and 65535'
-        },
-        {
-          type: 'input',
-          name: 'smtpUsername',
-          message: 'SMTP Username:',
-          validate: (input) => (input && input.length > 0) || 'SMTP username is required'
-        },
-        {
-          type: 'password',
-          name: 'smtpPassword',
-          message: 'SMTP Password:',
-          validate: (input) => (input && input.length > 0) || 'SMTP password is required'
-        },
-        {
-          type: 'input',
-          name: 'smtpSender',
-          message: 'From Email Address:',
-          default: (answers: any) => `no-reply@mg.${answers.domain || 'example.local'}`,
-          validate: (input) => (input && input.includes('@')) || 'Valid email address is required'
-        },
-        {
-          type: 'input',
           name: 'adminDisplayName',
           message: 'Admin display name:',
           default: 'Administrator',
-          validate: (input) => (input && input.trim().length > 0) || 'Display name is required'
+          validate: (input: string) => (input && input.trim().length > 0) || 'Display name is required'
         },
         {
           type: 'password',
           name: 'adminPassword',
           message: 'Admin password:',
           validate: validateStrongPassword
+        },
+        {
+          type: 'password',
+          name: 'adminPasswordConfirm',
+          message: 'Confirm admin password:',
+          validate: (input: string, answers: any) => {
+            if (input !== answers?.adminPassword) {
+              return 'Passwords do not match';
+            }
+            return true;
+          }
+        },
+        {
+          type: 'input',
+          name: 'smtpHost',
+          message: 'SMTP Host:',
+          default: 'smtp.eu.mailgun.org',
+          validate: (input: string) => (input && input.length > 0) || 'SMTP host is required'
+        },
+        {
+          type: 'number',
+          name: 'smtpPort',
+          message: 'SMTP Port:',
+          default: 587,
+          validate: (input: number) => (input && input > 0 && input <= 65535) || 'Port must be between 1 and 65535'
+        },
+        {
+          type: 'input',
+          name: 'smtpUsername',
+          message: 'SMTP Username:',
+          validate: (input: string) => (input && input.length > 0) || 'SMTP username is required'
+        },
+        {
+          type: 'password',
+          name: 'smtpPassword',
+          message: 'SMTP Password:',
+          validate: (input: string) => (input && input.length > 0) || 'SMTP password is required'
+        },
+        {
+          type: 'input',
+          name: 'smtpSender',
+          message: 'From Email Address:',
+          default: (answers: any) => `no-reply@mg.${answers.domain || 'example.local'}`,
+          validate: (input: string) => (input && input.includes('@')) || 'Valid email address is required'
         }
       ]);
 

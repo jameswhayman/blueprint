@@ -88,17 +88,17 @@ Volume=${containersDir}/authelia-config:/config:ro,z
 Volume=authelia-data.volume:/data
 Network=container.network
 PublishPort=9091:9091
-Secret=authelia_jwt_secret,type=env,target=AUTHELIA_JWT_SECRET
-Secret=authelia_session_secret,type=env,target=AUTHELIA_SESSION_SECRET
-Secret=authelia_storage_encryption_key,type=env,target=AUTHELIA_STORAGE_ENCRYPTION_KEY
-Secret=authelia_postgres_password,type=env,target=AUTHELIA_POSTGRES_PASSWORD
-Secret=authelia_postgres_db,type=env,target=AUTHELIA_POSTGRES_DB
-Secret=authelia_postgres_user,type=env,target=AUTHELIA_POSTGRES_USER
-Secret=smtp_host,type=env,target=SMTP_HOST
-Secret=smtp_port,type=env,target=SMTP_PORT
-Secret=smtp_username,type=env,target=SMTP_USERNAME
-Secret=smtp_password,type=env,target=SMTP_PASSWORD
-Secret=smtp_sender,type=env,target=SMTP_SENDER
+Secret=${secretsDir}/authelia_jwt_secret.secret,target=AUTHELIA_JWT_SECRET
+Secret=${secretsDir}/authelia_session_secret.secret,target=AUTHELIA_SESSION_SECRET
+Secret=${secretsDir}/authelia_storage_encryption_key.secret,target=AUTHELIA_STORAGE_ENCRYPTION_KEY
+Secret=${secretsDir}/authelia_postgres_password.secret,target=AUTHELIA_POSTGRES_PASSWORD
+Secret=${secretsDir}/authelia_postgres_db.secret,target=AUTHELIA_POSTGRES_DB
+Secret=${secretsDir}/authelia_postgres_user.secret,target=AUTHELIA_POSTGRES_USER
+Secret=${secretsDir}/smtp_host.secret,target=SMTP_HOST
+Secret=${secretsDir}/smtp_port.secret,target=SMTP_PORT
+Secret=${secretsDir}/smtp_username.secret,target=SMTP_USERNAME
+Secret=${secretsDir}/smtp_password.secret,target=SMTP_PASSWORD
+Secret=${secretsDir}/smtp_sender.secret,target=SMTP_SENDER
 
 [Service]
 Restart=always
@@ -116,27 +116,7 @@ VolumeSize=500M
   await fs.writeFile(path.join(containersDir, 'authelia.container'), containerUnit);
   await fs.writeFile(path.join(containersDir, 'authelia-data.volume'), dataVolume);
 
-  // Generate secret units
-  const secrets = [
-    'authelia_jwt_secret',
-    'authelia_session_secret', 
-    'authelia_storage_encryption_key',
-    'authelia_postgres_password',
-    'authelia_postgres_db',
-    'authelia_postgres_user',
-    'smtp_host',
-    'smtp_port',
-    'smtp_username',
-    'smtp_password',
-    'smtp_sender'
-  ];
-
-  for (const secretName of secrets) {
-    const secretUnit = `[Secret]
-Path=${secretsDir}/${secretName}.secret
-`;
-    await fs.writeFile(path.join(containersDir, `${secretName}.secret`), secretUnit);
-  }
+  // No need for separate secret unit files - Secret= directive references files directly
 }
 
 async function generateAutheliaPostgresSystemdUnits(containersDir: string, config: any) {
@@ -152,9 +132,12 @@ Image=docker.io/library/postgres:15-alpine
 Volume=authelia-postgres-data.volume:/var/lib/postgresql/data
 Network=container.network
 Environment=POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
-Secret=authelia_postgres_db,type=env,target=POSTGRES_DB
-Secret=authelia_postgres_user,type=env,target=POSTGRES_USER
-Secret=authelia_postgres_password,type=env,target=POSTGRES_PASSWORD
+Environment=POSTGRES_DB_FILE=/run/secrets/POSTGRES_DB
+Environment=POSTGRES_USER_FILE=/run/secrets/POSTGRES_USER
+Environment=POSTGRES_PASSWORD_FILE=/run/secrets/POSTGRES_PASSWORD
+Secret=${secretsDir}/authelia_postgres_db.secret,target=POSTGRES_DB
+Secret=${secretsDir}/authelia_postgres_user.secret,target=POSTGRES_USER
+Secret=${secretsDir}/authelia_postgres_password.secret,target=POSTGRES_PASSWORD
 
 [Service]
 Restart=always
