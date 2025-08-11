@@ -3,22 +3,55 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { logVerbose, logCommand, logInfo, logSuccess, logError, logWarning, setVerbose } from '../utils/logger.js';
 
 const execAsync = promisify(exec);
 
 export const servicesCommand = new Command('services')
-  .description('Manage deployed services');
+  .description('Manage deployed services')
+  .option('-v, --verbose', 'enable verbose output')
+  .hook('preAction', (thisCommand) => {
+    const opts = thisCommand.opts();
+    if (opts.verbose) {
+      setVerbose(true);
+    }
+  });
 
 servicesCommand
   .command('list')
   .description('List all services')
   .action(async () => {
     try {
-      const { stdout } = await execAsync('systemctl --user list-units --type=container --all --no-pager');
-      console.log(chalk.blue('🔧 Container Services:'));
-      console.log(stdout);
+      // First try with --type=container (newer systemd with Podman integration)
+      try {
+        const cmd = 'systemctl --user list-units --type=container --all --no-pager';
+        logCommand(cmd);
+        const { stdout } = await execAsync(cmd);
+        logInfo('Container Services:');
+        console.log(stdout);
+        return;
+      } catch (containerError: any) {
+        // If container type not available, fall back to pattern matching
+        if (containerError.stderr && containerError.stderr.includes('Unknown unit type')) {
+          logVerbose('Container type not available, falling back to pattern matching');
+          const cmd = 'systemctl --user list-units --all --no-pager | grep -E "\\.container|caddy|authelia|postgres" || true';
+          logCommand(cmd);
+          const { stdout } = await execAsync(cmd);
+          
+          if (stdout.trim()) {
+            logInfo('Container Services:');
+            console.log(stdout);
+          } else {
+            logWarning('No container services found.');
+            console.log(chalk.cyan('Hint: Container services typically end with .container'));
+            console.log(chalk.cyan('Example: systemctl --user start caddy.container'));
+          }
+          return;
+        }
+        throw containerError;
+      }
     } catch (error) {
-      console.error(chalk.red('Error listing services:'), error);
+      logError('Error listing services:', error);
     }
   });
 
@@ -27,10 +60,13 @@ servicesCommand
   .description('Start a service')
   .action(async (service) => {
     try {
-      await execAsync(`systemctl --user start ${service}.container`);
-      console.log(chalk.green(`✓ Started ${service}`));
+      const cmd = `systemctl --user start ${service}.container`;
+      logCommand(cmd);
+      logVerbose(`Starting service: ${service}`);
+      await execAsync(cmd);
+      logSuccess(`Started ${service}`);
     } catch (error) {
-      console.error(chalk.red(`Error starting ${service}:`), error);
+      logError(`Error starting ${service}:`, error);
     }
   });
 
@@ -39,10 +75,13 @@ servicesCommand
   .description('Stop a service')
   .action(async (service) => {
     try {
-      await execAsync(`systemctl --user stop ${service}.container`);
-      console.log(chalk.yellow(`⏹ Stopped ${service}`));
+      const cmd = `systemctl --user stop ${service}.container`;
+      logCommand(cmd);
+      logVerbose(`Stopping service: ${service}`);
+      await execAsync(cmd);
+      logWarning(`Stopped ${service}`);
     } catch (error) {
-      console.error(chalk.red(`Error stopping ${service}:`), error);
+      logError(`Error stopping ${service}:`, error);
     }
   });
 
@@ -51,10 +90,13 @@ servicesCommand
   .description('Restart a service')
   .action(async (service) => {
     try {
-      await execAsync(`systemctl --user restart ${service}.container`);
-      console.log(chalk.green(`🔄 Restarted ${service}`));
+      const cmd = `systemctl --user restart ${service}.container`;
+      logCommand(cmd);
+      logVerbose(`Restarting service: ${service}`);
+      await execAsync(cmd);
+      logSuccess(`Restarted ${service}`);
     } catch (error) {
-      console.error(chalk.red(`Error restarting ${service}:`), error);
+      logError(`Error restarting ${service}:`, error);
     }
   });
 
@@ -63,14 +105,17 @@ servicesCommand
   .description('Check service status')
   .action(async (service) => {
     try {
-      const { stdout } = await execAsync(`systemctl --user status ${service}.container --no-pager`);
+      const cmd = `systemctl --user status ${service}.container --no-pager`;
+      logCommand(cmd);
+      logVerbose(`Checking status of service: ${service}`);
+      const { stdout } = await execAsync(cmd);
       console.log(stdout);
     } catch (error: any) {
       if (error.code === 3) {
-        console.log(chalk.yellow(`Service ${service} is not active`));
+        logWarning(`Service ${service} is not active`);
         console.log(error.stdout);
       } else {
-        console.error(chalk.red(`Error checking ${service} status:`), error);
+        logError(`Error checking ${service} status:`, error);
       }
     }
   });
@@ -83,8 +128,11 @@ servicesCommand
   .action(async (service, options) => {
     const followFlag = options.follow ? '-f' : '';
     const cmd = `journalctl --user -u ${service}.container -n ${options.lines} ${followFlag}`;
+    logCommand(cmd);
+    logVerbose(`Fetching logs for service: ${service}`);
     
     if (options.follow) {
+      logVerbose('Following log output (Ctrl+C to exit)');
       const { spawn } = require('child_process');
       const proc = spawn('journalctl', ['--user', '-u', `${service}.container`, '-f'], {
         stdio: 'inherit'
@@ -99,7 +147,7 @@ servicesCommand
         const { stdout } = await execAsync(cmd);
         console.log(stdout);
       } catch (error) {
-        console.error(chalk.red(`Error fetching logs for ${service}:`), error);
+        logError(`Error fetching logs for ${service}:`, error);
       }
     }
   });

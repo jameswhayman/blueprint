@@ -10,6 +10,8 @@ import { servicesCommand } from './commands/services.js';
 import { authCommand } from './commands/auth.js';
 import { secretsCommand } from './commands/secrets.js';
 import { domainCommand } from './commands/domain.js';
+import { systemctlCommand, systemCommand } from './commands/systemctl.js';
+import { setVerbose } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,13 +22,22 @@ const program = new Command();
 program
   .name('blueprint')
   .description('CLI tool for scaffolding containerized deployments with Caddy and Authelia')
-  .version(packageJson.version);
+  .version(packageJson.version)
+  .option('-v, --verbose', 'enable verbose output')
+  .hook('preAction', (thisCommand) => {
+    const opts = thisCommand.opts();
+    if (opts.verbose) {
+      setVerbose(true);
+    }
+  });
 
 program.addCommand(initCommand);
 program.addCommand(servicesCommand);
 program.addCommand(authCommand);
 program.addCommand(secretsCommand);
 program.addCommand(domainCommand);
+program.addCommand(systemctlCommand);
+program.addCommand(systemCommand);
 
 program.parse();
 

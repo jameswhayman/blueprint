@@ -3,10 +3,16 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { generateSystemdUnits } from '../services/systemd.js';
 import { generateCaddyfile } from '../services/caddy.js';
 import { generateAutheliaConfig } from '../services/authelia.js';
 import { randomBytes } from 'crypto';
+import { logVerbose, logCommand, logSuccess, logError, logInfo, setVerbose } from '../utils/logger.js';
+
+const execAsync = promisify(exec);
 
 function validateStrongPassword(password: string): boolean | string {
   if (!password || password.length < 12) {
@@ -42,6 +48,13 @@ export const initCommand = new Command('init')
   .option('-n, --name <name>', 'Deployment name')
   .option('-d, --directory <dir>', 'Target directory', process.cwd())
   .option('--no-interactive', 'Skip interactive prompts')
+  .option('-v, --verbose', 'enable verbose output')
+  .hook('preAction', (thisCommand) => {
+    const opts = thisCommand.opts();
+    if (opts.verbose) {
+      setVerbose(true);
+    }
+  })
   .action(async (options) => {
     let config: any = {
       name: options.name,
@@ -169,10 +182,58 @@ export const initCommand = new Command('init')
       console.log(`   Username: admin`);
       console.log(`   Email: ${config.email}`);
       console.log(`   Display Name: ${config.adminDisplayName}`);
-      console.log(chalk.cyan(`\nNext steps:`));
-      console.log(`  1. cd ${deployDir}`);
-      console.log(`  2. systemctl --user daemon-reload`);
-      console.log(`  3. systemctl --user start caddy.container authelia-postgres.container authelia.container`);
+      
+      // Prompt for automatic setup
+      if (options.interactive !== false) {
+        const { autoSetup } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'autoSetup',
+            message: 'Set up systemd links and start services now?',
+            default: true
+          }
+        ]);
+        
+        if (autoSetup) {
+          logInfo('Setting up deployment...');
+          
+          // Change to deployment directory for setup
+          const originalDir = process.cwd();
+          process.chdir(deployDir);
+          
+          try {
+            // Create symlinks
+            logVerbose('Creating systemd symlinks...');
+            await setupSystemdLinks(deployDir);
+            
+            // Start services
+            logInfo('Starting services...');
+            await startServices();
+            
+            console.log(chalk.green('\n🎉 Deployment is ready!'));
+            console.log(chalk.cyan(`Visit: https://${config.domain}`));
+            
+          } catch (error) {
+            logError('Setup failed:', error);
+            console.log(chalk.yellow('\nManual setup required:'));
+            console.log(chalk.cyan(`  1. cd ${deployDir}`));
+            console.log(chalk.cyan(`  2. blueprint system setup-links`));
+            console.log(chalk.cyan(`  3. blueprint services start authelia-postgres authelia caddy`));
+          } finally {
+            process.chdir(originalDir);
+          }
+        } else {
+          console.log(chalk.cyan(`\nManual setup:`));
+          console.log(`  1. cd ${deployDir}`);
+          console.log(`  2. blueprint system setup-links`);
+          console.log(`  3. blueprint services start authelia-postgres authelia caddy`);
+        }
+      } else {
+        console.log(chalk.cyan(`\nNext steps:`));
+        console.log(`  1. cd ${deployDir}`);
+        console.log(`  2. blueprint system setup-links`);
+        console.log(`  3. blueprint services start authelia-postgres authelia caddy`);
+      }
     } catch (error) {
       console.error(chalk.red('Error creating deployment:'), error);
       process.exit(1);
@@ -201,5 +262,89 @@ async function generateInitialSecrets(deployDir: string, config: any) {
     const secretFile = path.join(secretsDir, `${key.toLowerCase()}.secret`);
     await fs.writeFile(secretFile, value, 'utf8');
     await fs.chmod(secretFile, 0o600); // Read/write for owner only
+  }
+}
+
+async function setupSystemdLinks(deployDir: string): Promise<void> {
+  const homeDir = os.homedir();
+  
+  // Define source and target paths
+  const links = [
+    {
+      name: 'containers',
+      source: path.join(deployDir, 'containers'),
+      target: path.join(homeDir, '.config', 'containers', 'systemd'),
+      description: 'Container unit files'
+    },
+    {
+      name: 'sockets',
+      source: path.join(deployDir, 'user'),
+      target: path.join(homeDir, '.config', 'systemd', 'user'),
+      description: 'Socket unit files'
+    },
+    {
+      name: 'secrets',
+      source: path.join(deployDir, 'secrets'),
+      target: path.join(homeDir, '.config', 'containers', 'secrets'),
+      description: 'Secret files'
+    }
+  ];
+  
+  for (const link of links) {
+    logVerbose(`Processing ${link.name}...`);
+    
+    // Check if source exists
+    try {
+      await fs.access(link.source);
+    } catch {
+      logVerbose(`Source directory ${link.source} does not exist, skipping ${link.name}`);
+      continue;
+    }
+    
+    // Create target parent directory if it doesn't exist
+    const targetParent = path.dirname(link.target);
+    try {
+      await fs.access(targetParent);
+    } catch {
+      logVerbose(`Creating parent directory: ${targetParent}`);
+      await fs.mkdir(targetParent, { recursive: true });
+    }
+    
+    // Remove existing target if it exists and is a symlink
+    try {
+      const stats = await fs.lstat(link.target);
+      if (stats.isSymbolicLink()) {
+        logVerbose(`Removing existing symlink: ${link.target}`);
+        await fs.unlink(link.target);
+      } else {
+        logVerbose(`Target ${link.target} exists and is not a symlink - skipping ${link.name}`);
+        continue;
+      }
+    } catch {
+      // Target doesn't exist, which is fine
+    }
+    
+    // Create the symlink
+    logVerbose(`Creating symlink: ${link.target} -> ${link.source}`);
+    await fs.symlink(link.source, link.target, 'dir');
+    logVerbose(`Linked ${link.description}`);
+  }
+  
+  // Reload systemd daemon
+  logVerbose('Reloading systemd daemon...');
+  const cmd = 'systemctl --user daemon-reload';
+  logCommand(cmd);
+  await execAsync(cmd);
+}
+
+async function startServices(): Promise<void> {
+  const services = ['authelia-postgres', 'authelia', 'caddy'];
+  
+  for (const service of services) {
+    logVerbose(`Starting ${service}...`);
+    const cmd = `systemctl --user start ${service}.container`;
+    logCommand(cmd);
+    await execAsync(cmd);
+    logSuccess(`Started ${service}`);
   }
 }
