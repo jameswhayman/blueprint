@@ -224,6 +224,8 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.5`: Fix password confirmation validation logic
+  - `fix: fix password matching validation by checking after all prompts complete`
 - `v1.2.4`: Add password confirmation validation
   - `fix: add validation to password confirmation prompt to ensure passwords match`
 - `v1.2.3`: Fix missing password confirmation prompt
