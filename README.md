@@ -8,11 +8,22 @@
 |____/|_____\___/|_____|_|   |_| \_\___|_| \_| |_|  
 ```
 
-> **Containerized Infrastructure Blueprint** - Production-ready web services with Caddy & Authelia
+> **Opinionated Self-Hosting Platform** - Deploy a complete stack of open-source services with built-in authentication and HTTPS
 
 [![Version](https://img.shields.io/badge/version-1.2.6-blue.svg)](https://github.com/jameswhayman/blueprint)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
+
+## Vision
+
+Blueprint is an opinionated deployment tool for self-hosting enthusiasts who want to run their own services without the complexity of configuring authentication, reverse proxies, and containerization from scratch.
+
+Every service deployed with Blueprint:
+- ✅ Routes through **Caddy** (automatic HTTPS, subdomains)
+- ✅ Protected by **Authelia** (Single Sign-On, 2FA)
+- ✅ Runs as **systemd containers** (Podman)
+- ✅ Shares **unified secret management**
+- ✅ Follows **production-ready defaults**
 
 ## Quick Start
 
@@ -21,30 +32,40 @@
 npm install -g blueprint
 
 # Create a new deployment
-blueprint init --name my-app
+blueprint init --name my-platform
 
-# Start services
+# Start core services
 blueprint services start caddy
 blueprint services start authelia
+
+# Add a service (coming soon)
+blueprint service add nextcloud
 ```
 
-## Overview
+## Core Infrastructure
 
-Blueprint is a CLI tool for rapidly scaffolding secure, containerized web infrastructure using systemd containers (Podman). It provides a production-ready setup with:
+Blueprint provides an opinionated stack with two essential services that power everything else:
 
-- **Caddy** - Modern web server with automatic HTTPS
-- **Authelia** - Complete authentication & authorization server with PostgreSQL backend
-- **SMTP Integration** - Email notifications out of the box
-- **File-based Secrets** - Secure secret management
+### 🔒 Caddy (Reverse Proxy)
+- Automatic HTTPS with Let's Encrypt
+- Subdomain routing for all services
+- Zero-config SSL certificates
+- Modern HTTP/3 support
+
+### 🛡️ Authelia (Authentication/Authorization)
+- Single Sign-On (SSO) for all services
+- Multi-factor authentication (TOTP 2FA)
+- User and group management
+- Session management across services
+- PostgreSQL backend (auto-configured)
 
 ## Features
 
-- **Zero-config HTTPS** - Automatic SSL certificates via Caddy
-- **Single Sign-On (SSO)** - Centralized authentication
-- **Multi-Factor Auth (MFA)** - TOTP 2FA support
-- **Socket Activation** - Efficient resource usage
-- **Modular Architecture** - Easy to extend and customize
-- **Production Ready** - Security best practices built-in
+- **Zero Decision Fatigue** - Authentication, routing, and containerization are pre-configured
+- **Production Ready** - Security best practices and sensible defaults built-in
+- **Consistent Patterns** - Every service follows the same deployment model
+- **Easy Scaling** - Add new services with a single command
+- **Unified Management** - One tool to control your entire self-hosted infrastructure
 
 ## Installation
 
@@ -64,9 +85,9 @@ npm run link  # For development
 
 ## CLI Commands
 
-### Initialize Deployment
+### Initialize Platform
 ```bash
-blueprint init --name my-app --directory ./my-deployment
+blueprint init --name my-platform --domain example.com
 ```
 
 ### Service Management
@@ -83,54 +104,53 @@ blueprint services restart <service>
 blueprint services logs <service> -f
 ```
 
-### Authentication Management
+### User Management
 ```bash
-# Add users
+# Add users to your platform
 blueprint auth add-user --username john --email john@example.com
 
-# List users
+# List platform users
 blueprint auth list-users
 ```
 
-### Domain Management
+### Domain Routing
 ```bash
-# Add domain routing
+# Route subdomain to a service
 blueprint domain add --domain app.example.com --target http://localhost:3000
 
-# List domains
+# List configured domains
 blueprint domain list
 ```
 
 ### Secrets Management
 ```bash
-# Setup secrets
+# Interactive setup for platform secrets
 blueprint secrets setup
 
-# View secrets (for debugging)
+# View current secrets (debugging)
 blueprint secrets show
 ```
 
 ## Architecture
 
+When you initialize a Blueprint deployment, it creates:
+
 ```
-my-deployment/
+my-platform/
 ├── containers/           # Container definitions
 │   ├── *.container      # systemd container units
 │   ├── *.volume         # Volume definitions
-│   ├── Caddyfile        # Caddy configuration
+│   ├── Caddyfile        # Caddy routing configuration
 │   └── authelia-config/ # Authelia configuration
-├── secrets/             # Secret files (git-ignored)
-│   └── *.secret        # Individual secret files
+├── secrets/             # Platform secrets (git-ignored)
+│   └── *.secret        # Individual secret files (600 permissions)
 └── user/               # User systemd units
     └── *.socket        # Socket activation units
 ```
 
-## Service Startup Order
-
-1. `authelia` - Authentication service (automatically starts its PostgreSQL database)
-2. `caddy` - Web server (depends on socket activation)
-
 ## systemd Management
+
+Blueprint uses systemd containers (Podman) for orchestration:
 
 ```bash
 # Start services (as user, not root)
@@ -153,18 +173,43 @@ journalctl --user -u caddy.container -f
 - **Secure session management**
 - **TLS 1.2+ enforcement**
 - **HTTPS-only by default**
+- **Automatic certificate renewal**
 
-## Configuration
+## Roadmap
 
-The CLI uses modular templates for easy customization:
+### Coming Soon: Service Marketplace
 
-- `src/templates/systemd/` - Container unit templates
-- `src/templates/config/` - Application config templates
-- `src/services/` - Service management logic
+Blueprint will support one-command deployment of popular self-hosted services:
+
+#### TODO: Services to Add
+- [ ] **Listmonk** - Newsletter and mailing list manager
+- [ ] **Twenty CRM** - Modern CRM alternative to Salesforce
+- [ ] **Umami** - Privacy-focused analytics alternative to Google Analytics
+- [ ] **OpenReplay** - Session replay and debugging platform
+
+#### Future Services
+- [ ] **Nextcloud** - File sync and collaboration
+- [ ] **GitLab** - Complete DevOps platform
+- [ ] **Grafana** - Monitoring and observability
+- [ ] **Vaultwarden** - Password manager
+- [ ] **Jellyfin** - Media server
+- [ ] **PhotoPrism** - AI-powered photo management
+- [ ] **Paperless-ngx** - Document management
+- [ ] **Home Assistant** - Home automation
+
+Each service will be pre-configured to work seamlessly with Caddy and Authelia, requiring minimal configuration from the user.
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
+
+### Adding a New Service
+
+To add a new service to Blueprint:
+1. Create a service template in `src/templates/services/`
+2. Add the service configuration generator in `src/services/`
+3. Register the service in the CLI commands
+4. Submit a PR with your addition
 
 ## License
 

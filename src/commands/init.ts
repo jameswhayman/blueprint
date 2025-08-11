@@ -3,9 +3,9 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import fs from 'fs/promises';
 import path from 'path';
-import { generateSystemdUnits } from '../utils/systemd.js';
-import { generateCaddyfile } from '../utils/caddy.js';
-import { generateAutheliaConfig } from '../utils/authelia.js';
+import { generateSystemdUnits } from '../services/systemd.js';
+import { generateCaddyfile } from '../services/caddy.js';
+import { generateAutheliaConfig } from '../services/authelia.js';
 import { randomBytes } from 'crypto';
 
 function validateStrongPassword(password: string): boolean | string {
