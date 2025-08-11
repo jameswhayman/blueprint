@@ -60,9 +60,10 @@ servicesCommand
   .description('Start a service')
   .action(async (service) => {
     try {
-      const cmd = `systemctl --user start ${service}.container`;
+      const serviceName = service.includes('.') ? service : `${service}.container`;
+      const cmd = `systemctl --user start ${serviceName}`;
       logCommand(cmd);
-      logVerbose(`Starting service: ${service}`);
+      logVerbose(`Starting service: ${serviceName}`);
       await execAsync(cmd);
       logSuccess(`Started ${service}`);
     } catch (error) {
@@ -75,9 +76,10 @@ servicesCommand
   .description('Stop a service')
   .action(async (service) => {
     try {
-      const cmd = `systemctl --user stop ${service}.container`;
+      const serviceName = service.includes('.') ? service : `${service}.container`;
+      const cmd = `systemctl --user stop ${serviceName}`;
       logCommand(cmd);
-      logVerbose(`Stopping service: ${service}`);
+      logVerbose(`Stopping service: ${serviceName}`);
       await execAsync(cmd);
       logWarning(`Stopped ${service}`);
     } catch (error) {
@@ -90,9 +92,10 @@ servicesCommand
   .description('Restart a service')
   .action(async (service) => {
     try {
-      const cmd = `systemctl --user restart ${service}.container`;
+      const serviceName = service.includes('.') ? service : `${service}.container`;
+      const cmd = `systemctl --user restart ${serviceName}`;
       logCommand(cmd);
-      logVerbose(`Restarting service: ${service}`);
+      logVerbose(`Restarting service: ${serviceName}`);
       await execAsync(cmd);
       logSuccess(`Restarted ${service}`);
     } catch (error) {
@@ -105,9 +108,10 @@ servicesCommand
   .description('Check service status')
   .action(async (service) => {
     try {
-      const cmd = `systemctl --user status ${service}.container --no-pager`;
+      const serviceName = service.includes('.') ? service : `${service}.container`;
+      const cmd = `systemctl --user status ${serviceName} --no-pager`;
       logCommand(cmd);
-      logVerbose(`Checking status of service: ${service}`);
+      logVerbose(`Checking status of service: ${serviceName}`);
       const { stdout } = await execAsync(cmd);
       console.log(stdout);
     } catch (error: any) {
@@ -126,15 +130,16 @@ servicesCommand
   .option('-f, --follow', 'Follow log output')
   .option('-n, --lines <lines>', 'Number of lines to show', '50')
   .action(async (service, options) => {
+    const serviceName = service.includes('.') ? service : `${service}.container`;
     const followFlag = options.follow ? '-f' : '';
-    const cmd = `journalctl --user -u ${service}.container -n ${options.lines} ${followFlag}`;
+    const cmd = `journalctl --user -u ${serviceName} -n ${options.lines} ${followFlag}`;
     logCommand(cmd);
-    logVerbose(`Fetching logs for service: ${service}`);
+    logVerbose(`Fetching logs for service: ${serviceName}`);
     
     if (options.follow) {
       logVerbose('Following log output (Ctrl+C to exit)');
       const { spawn } = require('child_process');
-      const proc = spawn('journalctl', ['--user', '-u', `${service}.container`, '-f'], {
+      const proc = spawn('journalctl', ['--user', '-u', serviceName, '-f'], {
         stdio: 'inherit'
       });
       

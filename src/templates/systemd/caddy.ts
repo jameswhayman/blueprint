@@ -3,16 +3,15 @@ Description=Caddy Web Server
 Wants=caddy.socket
 After=network-online.target caddy.socket
 Requires=caddy.socket
+DefaultDependencies=no
 
 [Container]
 ContainerName=caddy
 Image=docker.io/library/caddy:2-alpine
-Volume=caddy-data.volume:/data
-Volume=caddy-config.volume:/config
+Volume=caddy-data:/data
+Volume=caddy-config:/config
 Volume=${containersDir}/Caddyfile:/etc/caddy/Caddyfile:ro,z
-Network=container.network
-PublishPort=80:80
-PublishPort=443:443
+Network=pasta
 Exec=/usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 
 [Service]

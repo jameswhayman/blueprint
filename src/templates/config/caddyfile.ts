@@ -1,6 +1,5 @@
 export const caddyfileTemplate = (config: any) => `{
     admin off
-    auto_https ${config.useHttps ? 'on' : 'off'}
 }
 
 ${config.domain} {
@@ -15,10 +14,5 @@ ${config.domain} {
     handle /auth* {
         reverse_proxy authelia:9091
     }
-}
-
-# Admin interface (local only)
-:2019 {
-    respond "Caddy Admin - ${config.name}"
 }
 `;

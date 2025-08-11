@@ -132,12 +132,93 @@ secretsCommand
   });
 
 secretsCommand
+  .command('list-podman')
+  .description('List podman secrets')
+  .action(async () => {
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      const { stdout } = await execAsync('podman secret list --format "{{.Name}}"');
+      const secrets = stdout.trim().split('\n').filter(s => s);
+      
+      if (secrets.length === 0) {
+        console.log(chalk.yellow('No podman secrets found'));
+        return;
+      }
+      
+      console.log(chalk.blue('🔐 Podman secrets:'));
+      secrets.forEach(secret => {
+        console.log(`  ${chalk.green('✓')} ${secret}`);
+      });
+    } catch (error) {
+      console.error(chalk.red('Error listing podman secrets:'), error);
+    }
+  });
+
+secretsCommand
+  .command('create-podman')
+  .description('Create podman secrets from filesystem secrets')
+  .action(async () => {
+    const secretsDir = path.join(process.cwd(), 'secrets');
+    
+    try {
+      await fs.access(secretsDir);
+    } catch {
+      console.error(chalk.red('No secrets directory found. Run `blueprint secrets setup` first.'));
+      return;
+    }
+
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      const files = await fs.readdir(secretsDir);
+      const secretFiles = files.filter(f => !f.includes('.')); // No extension files
+      
+      if (secretFiles.length === 0) {
+        console.log(chalk.yellow('No secret files found in secrets directory'));
+        return;
+      }
+
+      console.log(chalk.blue('Creating podman secrets from filesystem...'));
+      
+      for (const secretName of secretFiles) {
+        const secretPath = path.join(secretsDir, secretName);
+        
+        try {
+          // Check if secret already exists and remove it
+          try {
+            await execAsync(`podman secret inspect ${secretName} >/dev/null 2>&1`);
+            console.log(chalk.yellow(`Removing existing secret: ${secretName}`));
+            await execAsync(`podman secret rm ${secretName}`);
+          } catch {
+            // Secret doesn't exist, which is fine
+          }
+          
+          // Create podman secret
+          await execAsync(`podman secret create ${secretName} ${secretPath}`);
+          console.log(chalk.green(`✓ Created podman secret: ${secretName}`));
+          
+        } catch (error) {
+          console.error(chalk.red(`✗ Failed to create secret ${secretName}:`), error);
+        }
+      }
+      
+    } catch (error) {
+      console.error(chalk.red('Error creating podman secrets:'), error);
+    }
+  });
+
+secretsCommand
   .command('rotate <secret>')
   .description('Rotate a specific secret')
   .action(async (secretName) => {
     try {
       const secretsDir = path.join(process.cwd(), 'secrets');
-      const secretFile = path.join(secretsDir, `${secretName.toLowerCase()}.secret`);
+      const secretFile = path.join(secretsDir, secretName); // No .secret extension
       
       try {
         await fs.access(secretFile);
@@ -146,9 +227,9 @@ secretsCommand
         console.log(chalk.cyan('Available secrets:'));
         try {
           const files = await fs.readdir(secretsDir);
-          const secretFiles = files.filter(f => f.endsWith('.secret'));
+          const secretFiles = files.filter(f => !f.includes('.'));
           secretFiles.forEach(f => {
-            console.log(`  ${f.replace('.secret', '').toUpperCase()}`);
+            console.log(`  ${f}`);
           });
         } catch {
           console.log('  No secrets found');
@@ -160,7 +241,7 @@ secretsCommand
         {
           type: 'confirm',
           name: 'confirmed',
-          message: `Rotate ${secretName.toUpperCase()}? This will generate a new value.`,
+          message: `Rotate ${secretName}? This will generate a new value.`,
           default: false
         }
       ]);
@@ -172,15 +253,15 @@ secretsCommand
 
       // Generate new secret based on type
       let newSecret: string;
-      if (secretName.toUpperCase().includes('PASSWORD') || 
-          secretName.toUpperCase().includes('SECRET') || 
-          secretName.toUpperCase().includes('KEY')) {
+      if (secretName.includes('PASSWORD') || 
+          secretName.includes('SECRET') || 
+          secretName.includes('KEY')) {
         newSecret = randomBytes(64).toString('hex');
-      } else if (secretName.toUpperCase().includes('DB') || secretName.toUpperCase().includes('USER')) {
+      } else if (secretName.includes('DB') || secretName.includes('USER')) {
         // Keep database names and usernames unchanged for rotation
         const currentSecret = await fs.readFile(secretFile, 'utf8');
         newSecret = currentSecret.trim();
-        console.log(chalk.yellow(`${secretName.toUpperCase()} is a configuration value, not rotating`));
+        console.log(chalk.yellow(`${secretName} is a configuration value, not rotating`));
         return;
       } else {
         newSecret = randomUUID();
@@ -189,7 +270,7 @@ secretsCommand
       await fs.writeFile(secretFile, newSecret, 'utf8');
       await fs.chmod(secretFile, 0o600);
       
-      console.log(chalk.green(`✓ ${secretName.toUpperCase()} rotated successfully`));
+      console.log(chalk.green(`✓ ${secretName} rotated successfully`));
       console.log(chalk.cyan('Remember to restart affected services to use the new secret'));
     } catch (error) {
       console.error(chalk.red('Error rotating secret:'), error);

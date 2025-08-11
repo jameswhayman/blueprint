@@ -124,63 +124,13 @@ systemCommand
       const homeDir = os.homedir();
       const cwd = process.cwd();
       
-      // Define source and target paths
-      const links = [
-        {
-          name: 'containers',
-          source: path.join(cwd, 'containers'),
-          target: path.join(homeDir, '.config', 'containers', 'systemd'),
-          description: 'Container unit files'
-        },
-        {
-          name: 'sockets',
-          source: path.join(cwd, 'user'),
-          target: path.join(homeDir, '.config', 'systemd', 'user'),
-          description: 'Socket unit files'
-        },
-        {
-          name: 'secrets',
-          source: path.join(cwd, 'secrets'),
-          target: path.join(homeDir, '.config', 'containers', 'secrets'),
-          description: 'Secret files'
-        }
-      ];
-      
       logVerbose('Setting up systemd symlinks...');
       
-      for (const link of links) {
-        logVerbose(`Processing ${link.name}...`);
-        
-        // Check if source exists
-        if (!fs.existsSync(link.source)) {
-          logWarning(`Source directory ${link.source} does not exist, skipping ${link.name}`);
-          continue;
-        }
-        
-        // Create target parent directory if it doesn't exist
-        const targetParent = path.dirname(link.target);
-        if (!fs.existsSync(targetParent)) {
-          logVerbose(`Creating parent directory: ${targetParent}`);
-          fs.mkdirSync(targetParent, { recursive: true });
-        }
-        
-        // Remove existing target if it exists
-        if (fs.existsSync(link.target)) {
-          const stats = fs.lstatSync(link.target);
-          if (stats.isSymbolicLink()) {
-            logVerbose(`Removing existing symlink: ${link.target}`);
-            fs.unlinkSync(link.target);
-          } else {
-            logWarning(`Target ${link.target} exists and is not a symlink - skipping ${link.name}`);
-            continue;
-          }
-        }
-        
-        // Create the symlink
-        logVerbose(`Creating symlink: ${link.target} -> ${link.source}`);
-        fs.symlinkSync(link.source, link.target, 'dir');
-        logSuccess(`Linked ${link.description}: ${link.target}`);
-      }
+      // 1. Handle containers directory - backup existing and replace with symlink
+      await handleContainersDirectory(homeDir, cwd);
+      
+      // 2. Handle sockets - symlink individual files
+      await handleSocketFiles(homeDir, cwd);
       
       // Reload systemd daemon to pick up new units
       logVerbose('Reloading systemd daemon to detect new units...');
@@ -195,3 +145,98 @@ systemCommand
       logError('Error setting up symlinks:', error);
     }
   });
+
+async function handleContainersDirectory(homeDir: string, cwd: string): Promise<void> {
+  const source = path.join(cwd, 'containers');
+  const target = path.join(homeDir, '.config', 'containers', 'systemd');
+  
+  logVerbose('Processing containers...');
+  
+  // Check if source exists
+  if (!fs.existsSync(source)) {
+    logWarning(`Source directory ${source} does not exist, skipping containers`);
+    return;
+  }
+  
+  // Create backup if target exists and is not a symlink
+  if (fs.existsSync(target)) {
+    const stats = fs.lstatSync(target);
+    if (!stats.isSymbolicLink()) {
+      const backupDir = path.join(cwd, 'backups');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupPath = path.join(backupDir, `containers-systemd-${timestamp}`);
+      
+      logVerbose(`Creating backup: ${target} -> ${backupPath}`);
+      fs.mkdirSync(backupDir, { recursive: true });
+      fs.cpSync(target, backupPath, { recursive: true });
+      logInfo(`Backed up existing systemd directory to: ${backupPath}`);
+      
+      // Remove the original directory
+      logVerbose(`Removing existing directory: ${target}`);
+      fs.rmSync(target, { recursive: true, force: true });
+    } else {
+      // It's already a symlink, remove it
+      logVerbose(`Removing existing symlink: ${target}`);
+      fs.unlinkSync(target);
+    }
+  }
+  
+  // Create parent directory if needed
+  const targetParent = path.dirname(target);
+  if (!fs.existsSync(targetParent)) {
+    logVerbose(`Creating parent directory: ${targetParent}`);
+    fs.mkdirSync(targetParent, { recursive: true });
+  }
+  
+  // Create the symlink
+  logVerbose(`Creating symlink: ${target} -> ${source}`);
+  fs.symlinkSync(source, target, 'dir');
+  logSuccess(`Linked container unit files: ${target}`);
+}
+
+async function handleSocketFiles(homeDir: string, cwd: string): Promise<void> {
+  const source = path.join(cwd, 'user');
+  const target = path.join(homeDir, '.config', 'systemd', 'user');
+  
+  logVerbose('Processing sockets...');
+  
+  // Check if source exists
+  if (!fs.existsSync(source)) {
+    logWarning(`Source directory ${source} does not exist, skipping sockets`);
+    return;
+  }
+  
+  // Create target directory if it doesn't exist
+  if (!fs.existsSync(target)) {
+    logVerbose(`Creating directory: ${target}`);
+    fs.mkdirSync(target, { recursive: true });
+  }
+  
+  // Get all files in source directory
+  const files = fs.readdirSync(source, { withFileTypes: true });
+  
+  for (const file of files) {
+    if (file.isFile()) {
+      const sourceFile = path.join(source, file.name);
+      const targetFile = path.join(target, file.name);
+      
+      // Remove existing file/symlink if it exists
+      if (fs.existsSync(targetFile)) {
+        const stats = fs.lstatSync(targetFile);
+        if (stats.isSymbolicLink()) {
+          logVerbose(`Removing existing symlink: ${targetFile}`);
+          fs.unlinkSync(targetFile);
+        } else {
+          logVerbose(`Removing existing file: ${targetFile}`);
+          fs.unlinkSync(targetFile);
+        }
+      }
+      
+      // Create symlink to individual file
+      logVerbose(`Creating file symlink: ${targetFile} -> ${sourceFile}`);
+      fs.symlinkSync(sourceFile, targetFile, 'file');
+      logSuccess(`Linked socket file: ${file.name}`);
+    }
+  }
+}
+

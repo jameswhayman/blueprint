@@ -158,8 +158,7 @@ export const initCommand = new Command('init')
       await fs.mkdir(deployDir, { recursive: true });
       await fs.mkdir(path.join(deployDir, 'containers'), { recursive: true });
       await fs.mkdir(path.join(deployDir, 'user'), { recursive: true });
-      await fs.mkdir(path.join(deployDir, 'secrets'), { recursive: true });
-      await fs.mkdir(path.join(deployDir, 'backup'), { recursive: true });
+      await fs.mkdir(path.join(deployDir, 'backups'), { recursive: true });
 
       console.log(chalk.green('✓ Generating Caddy configuration...'));
       await generateCaddyfile(deployDir, config);
@@ -241,94 +240,66 @@ export const initCommand = new Command('init')
   });
 
 async function generateInitialSecrets(deployDir: string, config: any) {
-  const secretsDir = path.join(deployDir, 'secrets');
-  
   const secrets: Record<string, string> = {
-    AUTHELIA_JWT_SECRET: randomBytes(64).toString('hex'),
-    AUTHELIA_SESSION_SECRET: randomBytes(64).toString('hex'),
-    AUTHELIA_STORAGE_ENCRYPTION_KEY: randomBytes(64).toString('hex'),
-    AUTHELIA_POSTGRES_PASSWORD: randomBytes(32).toString('hex'),
-    AUTHELIA_POSTGRES_DB: 'authelia',
-    AUTHELIA_POSTGRES_USER: 'authelia',
-    SMTP_HOST: config.smtpHost || 'smtp.eu.mailgun.org',
-    SMTP_PORT: (config.smtpPort || 587).toString(),
+    JWT_SECRET: randomBytes(64).toString('hex'),
+    SESSION_SECRET: randomBytes(64).toString('hex'),
+    STORAGE_ENCRYPTION_KEY: randomBytes(64).toString('hex'),
+    STORAGE_PASSWORD: randomBytes(32).toString('hex'),
+    POSTGRES_DB: 'authelia',
+    POSTGRES_USER: 'authelia',
+    SMTP_ADDRESS: `${config.smtpHost || 'smtp.eu.mailgun.org'}:${config.smtpPort || 587}`,
     SMTP_USERNAME: config.smtpUsername || `no-reply@mg.${config.domain}`,
     SMTP_PASSWORD: config.smtpPassword || 'your-mailgun-smtp-password',
     SMTP_SENDER: config.smtpSender || `no-reply@mg.${config.domain}`
   };
 
-  // Write each secret to its own file
+  // Create podman secrets (no backup files created by default)
+  logVerbose('Creating podman secrets...');
   for (const [key, value] of Object.entries(secrets)) {
-    const secretFile = path.join(secretsDir, `${key.toLowerCase()}.secret`);
-    await fs.writeFile(secretFile, value, 'utf8');
-    await fs.chmod(secretFile, 0o600); // Read/write for owner only
+    // Create temporary file for podman secret creation
+    const tempFile = path.join('/tmp', `${key}_${Date.now()}.tmp`);
+    await fs.writeFile(tempFile, value, 'utf8');
+    await fs.chmod(tempFile, 0o600);
+    
+    try {
+      // Check if secret already exists and remove it
+      try {
+        await execAsync(`podman secret inspect ${key} >/dev/null 2>&1`);
+        logVerbose(`Removing existing secret: ${key}`);
+        await execAsync(`podman secret rm ${key}`);
+      } catch {
+        // Secret doesn't exist, which is fine
+      }
+      
+      // Create podman secret
+      logVerbose(`Creating podman secret: ${key}`);
+      const cmd = `podman secret create ${key} ${tempFile}`;
+      logCommand(cmd);
+      await execAsync(cmd);
+      
+    } finally {
+      // Clean up temp file
+      try {
+        await fs.unlink(tempFile);
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
   }
+  
+  logSuccess(`Created ${Object.keys(secrets).length} podman secrets`);
 }
 
 async function setupSystemdLinks(deployDir: string): Promise<void> {
   const homeDir = os.homedir();
   
-  // Define source and target paths
-  const links = [
-    {
-      name: 'containers',
-      source: path.join(deployDir, 'containers'),
-      target: path.join(homeDir, '.config', 'containers', 'systemd'),
-      description: 'Container unit files'
-    },
-    {
-      name: 'sockets',
-      source: path.join(deployDir, 'user'),
-      target: path.join(homeDir, '.config', 'systemd', 'user'),
-      description: 'Socket unit files'
-    },
-    {
-      name: 'secrets',
-      source: path.join(deployDir, 'secrets'),
-      target: path.join(homeDir, '.config', 'containers', 'secrets'),
-      description: 'Secret files'
-    }
-  ];
+  logVerbose('Setting up systemd symlinks...');
   
-  for (const link of links) {
-    logVerbose(`Processing ${link.name}...`);
-    
-    // Check if source exists
-    try {
-      await fs.access(link.source);
-    } catch {
-      logVerbose(`Source directory ${link.source} does not exist, skipping ${link.name}`);
-      continue;
-    }
-    
-    // Create target parent directory if it doesn't exist
-    const targetParent = path.dirname(link.target);
-    try {
-      await fs.access(targetParent);
-    } catch {
-      logVerbose(`Creating parent directory: ${targetParent}`);
-      await fs.mkdir(targetParent, { recursive: true });
-    }
-    
-    // Remove existing target if it exists and is a symlink
-    try {
-      const stats = await fs.lstat(link.target);
-      if (stats.isSymbolicLink()) {
-        logVerbose(`Removing existing symlink: ${link.target}`);
-        await fs.unlink(link.target);
-      } else {
-        logVerbose(`Target ${link.target} exists and is not a symlink - skipping ${link.name}`);
-        continue;
-      }
-    } catch {
-      // Target doesn't exist, which is fine
-    }
-    
-    // Create the symlink
-    logVerbose(`Creating symlink: ${link.target} -> ${link.source}`);
-    await fs.symlink(link.source, link.target, 'dir');
-    logVerbose(`Linked ${link.description}`);
-  }
+  // 1. Handle containers directory - backup existing and replace with symlink
+  await handleContainersDirectoryInit(homeDir, deployDir);
+  
+  // 2. Handle sockets - symlink individual files
+  await handleSocketFilesInit(homeDir, deployDir);
   
   // Reload systemd daemon
   logVerbose('Reloading systemd daemon...');
@@ -337,12 +308,119 @@ async function setupSystemdLinks(deployDir: string): Promise<void> {
   await execAsync(cmd);
 }
 
+async function handleContainersDirectoryInit(homeDir: string, deployDir: string): Promise<void> {
+  const source = path.join(deployDir, 'containers');
+  const target = path.join(homeDir, '.config', 'containers', 'systemd');
+  
+  logVerbose('Processing containers...');
+  
+  // Check if source exists
+  try {
+    await fs.access(source);
+  } catch {
+    logVerbose(`Source directory ${source} does not exist, skipping containers`);
+    return;
+  }
+  
+  // Create backup if target exists and is not a symlink
+  try {
+    const stats = await fs.lstat(target);
+    if (!stats.isSymbolicLink()) {
+      const backupDir = path.join(deployDir, 'backups');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const backupPath = path.join(backupDir, `containers-systemd-${timestamp}`);
+      
+      logVerbose(`Creating backup: ${target} -> ${backupPath}`);
+      await fs.mkdir(backupDir, { recursive: true });
+      await fs.cp(target, backupPath, { recursive: true });
+      logInfo(`Backed up existing systemd directory to: ${backupPath}`);
+      
+      // Remove the original directory
+      logVerbose(`Removing existing directory: ${target}`);
+      await fs.rm(target, { recursive: true, force: true });
+    } else {
+      // It's already a symlink, remove it
+      logVerbose(`Removing existing symlink: ${target}`);
+      await fs.unlink(target);
+    }
+  } catch {
+    // Target doesn't exist, which is fine
+  }
+  
+  // Create parent directory if needed
+  const targetParent = path.dirname(target);
+  try {
+    await fs.access(targetParent);
+  } catch {
+    logVerbose(`Creating parent directory: ${targetParent}`);
+    await fs.mkdir(targetParent, { recursive: true });
+  }
+  
+  // Create the symlink
+  logVerbose(`Creating symlink: ${target} -> ${source}`);
+  await fs.symlink(source, target, 'dir');
+  logVerbose(`Linked container unit files`);
+}
+
+async function handleSocketFilesInit(homeDir: string, deployDir: string): Promise<void> {
+  const source = path.join(deployDir, 'user');
+  const target = path.join(homeDir, '.config', 'systemd', 'user');
+  
+  logVerbose('Processing sockets...');
+  
+  // Check if source exists
+  try {
+    await fs.access(source);
+  } catch {
+    logVerbose(`Source directory ${source} does not exist, skipping sockets`);
+    return;
+  }
+  
+  // Create target directory if it doesn't exist
+  try {
+    await fs.access(target);
+  } catch {
+    logVerbose(`Creating directory: ${target}`);
+    await fs.mkdir(target, { recursive: true });
+  }
+  
+  // Get all files in source directory
+  const files = await fs.readdir(source, { withFileTypes: true });
+  
+  for (const file of files) {
+    if (file.isFile()) {
+      const sourceFile = path.join(source, file.name);
+      const targetFile = path.join(target, file.name);
+      
+      // Remove existing file/symlink if it exists
+      try {
+        const stats = await fs.lstat(targetFile);
+        if (stats.isSymbolicLink()) {
+          logVerbose(`Removing existing symlink: ${targetFile}`);
+          await fs.unlink(targetFile);
+        } else {
+          logVerbose(`Removing existing file: ${targetFile}`);
+          await fs.unlink(targetFile);
+        }
+      } catch {
+        // File doesn't exist, which is fine
+      }
+      
+      // Create symlink to individual file
+      logVerbose(`Creating file symlink: ${targetFile} -> ${sourceFile}`);
+      await fs.symlink(sourceFile, targetFile, 'file');
+      logVerbose(`Linked socket file: ${file.name}`);
+    }
+  }
+}
+
+
 async function startServices(): Promise<void> {
-  const services = ['authelia-postgres', 'authelia', 'caddy'];
+  const services = ['authelia-postgres.service', 'authelia.service', 'caddy.service'];
   
   for (const service of services) {
     logVerbose(`Starting ${service}...`);
-    const cmd = `systemctl --user start ${service}.container`;
+    const cmd = `systemctl --user start ${service}`;
     logCommand(cmd);
     await execAsync(cmd);
     logSuccess(`Started ${service}`);
