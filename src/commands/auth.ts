@@ -7,6 +7,35 @@ import yaml from 'yaml';
 import argon2 from 'argon2';
 import { generateTOTPSecret } from '../utils/totp.js';
 
+function validateStrongPassword(password: string): boolean | string {
+  if (!password || password.length < 12) {
+    return 'Password must be at least 12 characters long';
+  }
+  
+  const hasLowercase = /[a-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  if (!hasLowercase) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  
+  if (!hasUppercase) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  
+  if (!hasNumbers) {
+    return 'Password must contain at least one number';
+  }
+  
+  if (!hasSpecialChar) {
+    return 'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+  }
+  
+  return true;
+}
+
 export const authCommand = new Command('auth')
   .description('Manage Authelia authentication');
 
@@ -194,5 +223,80 @@ authCommand
       console.log('  systemctl --user restart authelia.container');
     } catch (error) {
       console.error(chalk.red('Error changing password:'), error);
+    }
+  });
+
+authCommand
+  .command('reset-password <username>')
+  .description('Reset a user password with strong password requirements')
+  .option('-p, --password <password>', 'New password')
+  .action(async (username, options) => {
+    let password = options.password;
+
+    if (!password) {
+      const answers = await inquirer.prompt([
+        {
+          type: 'password',
+          name: 'password',
+          message: 'New password:',
+          validate: validateStrongPassword
+        },
+        {
+          type: 'password',
+          name: 'passwordConfirm',
+          message: 'Confirm new password:'
+        }
+      ]);
+      
+      // Check password confirmation
+      while (answers.password !== answers.passwordConfirm) {
+        console.log(chalk.red('Passwords do not match. Please try again.'));
+        const passwordRetry = await inquirer.prompt([
+          {
+            type: 'password',
+            name: 'password',
+            message: 'New password:',
+            validate: validateStrongPassword
+          },
+          {
+            type: 'password',
+            name: 'passwordConfirm',
+            message: 'Confirm new password:'
+          }
+        ]);
+        answers.password = passwordRetry.password;
+        answers.passwordConfirm = passwordRetry.passwordConfirm;
+      }
+      
+      password = answers.password;
+    } else {
+      // Validate provided password
+      const validation = validateStrongPassword(password);
+      if (validation !== true) {
+        console.error(chalk.red(validation));
+        process.exit(1);
+      }
+    }
+
+    try {
+      const usersFile = path.join(process.cwd(), 'containers', 'authelia-config', 'users_database.yml');
+      const content = await fs.readFile(usersFile, 'utf8');
+      const users = yaml.parse(content);
+
+      if (!users.users[username]) {
+        console.log(chalk.yellow(`User ${username} not found`));
+        return;
+      }
+
+      const hashedPassword = await argon2.hash(password);
+      users.users[username].password = hashedPassword;
+
+      await fs.writeFile(usersFile, yaml.stringify(users), 'utf8');
+      
+      console.log(chalk.green(`✓ Password reset successfully for user ${username}`));
+      console.log(chalk.cyan('Remember to restart Authelia to apply changes:'));
+      console.log('  systemctl --user restart authelia.container');
+    } catch (error) {
+      console.error(chalk.red('Error resetting password:'), error);
     }
   });

@@ -107,6 +107,7 @@ export const initCommand = new Command('init')
           type: 'input',
           name: 'smtpUsername',
           message: 'SMTP Username:',
+          default: (answers: any) => `no-reply@mg.${answers.domain || 'example.local'}`,
           validate: (input: string) => (input && input.length > 0) || 'SMTP username is required'
         },
         {
@@ -155,7 +156,7 @@ export const initCommand = new Command('init')
       config.useHttps = true; // Always use HTTPS
       config.smtpHost = 'smtp.eu.mailgun.org';
       config.smtpPort = 587;
-      config.smtpUsername = `postmaster@${config.domain}`;
+      config.smtpUsername = `no-reply@mg.${config.domain}`;
       config.smtpPassword = 'your-mailgun-smtp-password';
       config.smtpSender = `no-reply@mg.${config.domain}`;
       config.adminDisplayName = 'Administrator';
@@ -216,7 +217,7 @@ async function generateInitialSecrets(deployDir: string, config: any) {
     AUTHELIA_POSTGRES_USER: 'authelia',
     SMTP_HOST: config.smtpHost || 'smtp.eu.mailgun.org',
     SMTP_PORT: (config.smtpPort || 587).toString(),
-    SMTP_USERNAME: config.smtpUsername || `postmaster@${config.domain}`,
+    SMTP_USERNAME: config.smtpUsername || `no-reply@mg.${config.domain}`,
     SMTP_PASSWORD: config.smtpPassword || 'your-mailgun-smtp-password',
     SMTP_SENDER: config.smtpSender || `no-reply@mg.${config.domain}`
   };

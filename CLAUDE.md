@@ -224,6 +224,9 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.7`: Add password reset command and update SMTP username default
+  - `feat: add reset-password command with strong password validation`
+  - `feat: update default SMTP username to no-reply@mg.{domain}`
 - `v1.2.5`: Fix password confirmation validation logic
   - `fix: fix password matching validation by checking after all prompts complete`
 - `v1.2.4`: Add password confirmation validation
@@ -269,3 +272,4 @@ git tag -a v1.2.0 -m "v1.2.0: Feature description"
 - The `deploy.sh` script is currently empty and needs implementation
 - Socket activation is used for Caddy for efficient resource usage
 - Version bumping follows semver: patch for fixes, minor for features, no majors yet
+- don't forget to commit, build, and version bump
