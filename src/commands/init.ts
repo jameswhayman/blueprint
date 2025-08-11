@@ -71,6 +71,7 @@ export const initCommand = new Command('init')
           type: 'input',
           name: 'smtpSender',
           message: 'From Email Address:',
+          default: (answers: any) => `no-reply@mg.${answers.domain || 'example.local'}`,
           validate: (input) => (input && input.includes('@')) || 'Valid email address is required'
         }
       ]);
@@ -87,7 +88,7 @@ export const initCommand = new Command('init')
       config.smtpPort = 587;
       config.smtpUsername = `postmaster@${config.domain}`;
       config.smtpPassword = 'your-mailgun-smtp-password';
-      config.smtpSender = `noreply@${config.domain}`;
+      config.smtpSender = `no-reply@mg.${config.domain}`;
     }
 
     const deployDir = path.join(config.directory, config.name);
@@ -144,7 +145,7 @@ async function generateInitialSecrets(deployDir: string, config: any) {
     SMTP_PORT: (config.smtpPort || 587).toString(),
     SMTP_USERNAME: config.smtpUsername || `postmaster@${config.domain}`,
     SMTP_PASSWORD: config.smtpPassword || 'your-mailgun-smtp-password',
-    SMTP_SENDER: config.smtpSender || `noreply@${config.domain}`
+    SMTP_SENDER: config.smtpSender || `no-reply@mg.${config.domain}`
   };
 
   // Write each secret to its own file

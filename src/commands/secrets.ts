@@ -60,7 +60,7 @@ secretsCommand
       SMTP_PORT: existingSecrets.SMTP_PORT || '587',
       SMTP_USERNAME: existingSecrets.SMTP_USERNAME || 'postmaster@your-domain.com',
       SMTP_PASSWORD: existingSecrets.SMTP_PASSWORD || 'your-mailgun-smtp-password',
-      SMTP_SENDER: existingSecrets.SMTP_SENDER || 'noreply@your-domain.com',
+      SMTP_SENDER: existingSecrets.SMTP_SENDER || 'no-reply@mg.your-domain.com',
       ...existingSecrets
     };
 
