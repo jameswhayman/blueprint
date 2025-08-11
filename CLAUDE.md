@@ -223,6 +223,8 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.0`: Create initial admin user during initialization with strong password requirements
+  - `feat: add admin user creation with strong password validation during init`
 - `v1.1.5`: From email address now uses Mailgun subdomain format (no-reply@mg.{domain})
   - `fix: update from email format to use Mailgun subdomain convention`
 - `v1.1.4`: Pre-populate SMTP host with Mailgun EU as default

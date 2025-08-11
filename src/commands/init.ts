@@ -8,6 +8,35 @@ import { generateCaddyfile } from '../utils/caddy.js';
 import { generateAutheliaConfig } from '../utils/authelia.js';
 import { randomBytes } from 'crypto';
 
+function validateStrongPassword(password: string): boolean | string {
+  if (!password || password.length < 12) {
+    return 'Password must be at least 12 characters long';
+  }
+  
+  const hasLowercase = /[a-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  if (!hasLowercase) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  
+  if (!hasUppercase) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  
+  if (!hasNumbers) {
+    return 'Password must contain at least one number';
+  }
+  
+  if (!hasSpecialChar) {
+    return 'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+  }
+  
+  return true;
+}
+
 export const initCommand = new Command('init')
   .description('Initialize a new deployment')
   .option('-n, --name <name>', 'Deployment name')
@@ -73,6 +102,19 @@ export const initCommand = new Command('init')
           message: 'From Email Address:',
           default: (answers: any) => `no-reply@mg.${answers.domain || 'example.local'}`,
           validate: (input) => (input && input.includes('@')) || 'Valid email address is required'
+        },
+        {
+          type: 'input',
+          name: 'adminDisplayName',
+          message: 'Admin display name:',
+          default: 'Administrator',
+          validate: (input) => (input && input.trim().length > 0) || 'Display name is required'
+        },
+        {
+          type: 'password',
+          name: 'adminPassword',
+          message: 'Admin password:',
+          validate: validateStrongPassword
         }
       ]);
 
@@ -89,6 +131,8 @@ export const initCommand = new Command('init')
       config.smtpUsername = `postmaster@${config.domain}`;
       config.smtpPassword = 'your-mailgun-smtp-password';
       config.smtpSender = `no-reply@mg.${config.domain}`;
+      config.adminDisplayName = 'Administrator';
+      config.adminPassword = 'ChangeMeToAStrongPassword123!';
     }
 
     const deployDir = path.join(config.directory, config.name);
@@ -119,12 +163,14 @@ export const initCommand = new Command('init')
       await generateInitialSecrets(deployDir, config);
 
       console.log(chalk.green('\n✅ Deployment initialized successfully!'));
+      console.log(chalk.blue(`\n📋 Admin Account Created:`));
+      console.log(`   Username: admin`);
+      console.log(`   Email: ${config.email}`);
+      console.log(`   Display Name: ${config.adminDisplayName}`);
       console.log(chalk.cyan(`\nNext steps:`));
       console.log(`  1. cd ${deployDir}`);
-      console.log(`  2. blueprint auth add-user`);
-      console.log(`  3. systemctl --user daemon-reload`);
-      
-      console.log(`  5. systemctl --user start caddy.container authelia-postgres.container authelia.container`);
+      console.log(`  2. systemctl --user daemon-reload`);
+      console.log(`  3. systemctl --user start caddy.container authelia-postgres.container authelia.container`);
     } catch (error) {
       console.error(chalk.red('Error creating deployment:'), error);
       process.exit(1);

@@ -85,13 +85,13 @@ export async function generateAutheliaConfig(deployDir: string, config: any) {
     }
   };
 
-  // Generate default admin user
-  const adminPassword = await argon2.hash('changeme');
+  // Generate admin user with provided details
+  const adminPassword = await argon2.hash(config.adminPassword || 'changeme');
   
   const usersDatabase = {
     users: {
       admin: {
-        displayname: 'Administrator',
+        displayname: config.adminDisplayName || 'Administrator',
         password: adminPassword,
         email: config.email,
         groups: ['admins', 'users']
