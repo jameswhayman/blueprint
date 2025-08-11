@@ -44,7 +44,8 @@ export const initCommand = new Command('init')
         {
           type: 'input',
           name: 'smtpHost',
-          message: 'SMTP Host (e.g., smtp.eu.mailgun.org):',
+          message: 'SMTP Host:',
+          default: 'smtp.eu.mailgun.org',
           validate: (input) => (input && input.length > 0) || 'SMTP host is required'
         },
         {

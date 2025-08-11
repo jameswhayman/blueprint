@@ -223,6 +223,7 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.1.4`: Pre-populate SMTP host with Mailgun EU as default
 - `v1.1.3`: Removed core services selection (Caddy + Authelia always included)
   - `refactor: remove core services selection (Caddy + Authelia always included)`
 - `v1.1.2`: Admin email now uses project domain automatically
