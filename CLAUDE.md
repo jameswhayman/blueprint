@@ -224,6 +224,8 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.2.3`: Fix missing password confirmation prompt
+  - `fix: restore password confirmation prompt that was accidentally removed`
 - `v1.2.2`: Improve password confirmation UX with retry loop
   - `feat: add password confirmation retry loop when passwords don't match`
 - `v1.2.1`: Improve secrets implementation with file mounting and password confirmation

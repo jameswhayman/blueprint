@@ -85,6 +85,11 @@ export const initCommand = new Command('init')
           validate: validateStrongPassword
         },
         {
+          type: 'password',
+          name: 'adminPasswordConfirm',
+          message: 'Confirm admin password:'
+        },
+        {
           type: 'input',
           name: 'smtpHost',
           message: 'SMTP Host:',
@@ -124,32 +129,24 @@ export const initCommand = new Command('init')
       config.email = config.email || `admin@${config.domain}`;
 
       // Password confirmation loop
-      let passwordConfirmed = false;
-      while (!passwordConfirmed) {
+      while (config.adminPassword !== config.adminPasswordConfirm) {
+        console.log(chalk.red('Passwords do not match. Please try again.'));
         // @ts-ignore - inquirer types are complex, but this works at runtime
-        const passwordAnswers = await inquirer.prompt([
+        const retryAnswers = await inquirer.prompt([
+          {
+            type: 'password',
+            name: 'adminPassword',
+            message: 'Admin password:',
+            validate: validateStrongPassword
+          },
           {
             type: 'password',
             name: 'adminPasswordConfirm',
             message: 'Confirm admin password:'
           }
         ]);
-
-        if (passwordAnswers.adminPasswordConfirm === config.adminPassword) {
-          passwordConfirmed = true;
-        } else {
-          console.log(chalk.red('Passwords do not match. Please try again.'));
-          // @ts-ignore - inquirer types are complex, but this works at runtime
-          const retryAnswers = await inquirer.prompt([
-            {
-              type: 'password',
-              name: 'adminPassword',
-              message: 'Admin password:',
-              validate: validateStrongPassword
-            }
-          ]);
-          config.adminPassword = retryAnswers.adminPassword;
-        }
+        config.adminPassword = retryAnswers.adminPassword;
+        config.adminPasswordConfirm = retryAnswers.adminPasswordConfirm;
       }
     } else {
       // Non-interactive mode - use defaults (will need SMTP setup later)
