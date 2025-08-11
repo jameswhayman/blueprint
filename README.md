@@ -11,7 +11,7 @@
 > **Containerized Infrastructure Blueprint** - Production-ready web services with Caddy & Authelia
 
 [![Version](https://img.shields.io/badge/version-1.2.6-blue.svg)](https://github.com/jameswhayman/blueprint)
-[![License](https://img.shields.io/badge/license-ISC-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 
 ## Quick Start
@@ -25,7 +25,6 @@ blueprint init --name my-app
 
 # Start services
 blueprint services start caddy
-blueprint services start authelia-postgres
 blueprint services start authelia
 ```
 
@@ -34,8 +33,7 @@ blueprint services start authelia
 Blueprint is a CLI tool for rapidly scaffolding secure, containerized web infrastructure using systemd containers (Podman). It provides a production-ready setup with:
 
 - **Caddy** - Modern web server with automatic HTTPS
-- **Authelia** - Complete authentication & authorization server
-- **PostgreSQL** - Dedicated database for Authelia
+- **Authelia** - Complete authentication & authorization server with PostgreSQL backend
 - **SMTP Integration** - Email notifications out of the box
 - **File-based Secrets** - Secure secret management
 
@@ -129,21 +127,18 @@ my-deployment/
 
 ## Service Startup Order
 
-1. `authelia-postgres` - Database must start first
-2. `authelia` - Authentication service
-3. `caddy` - Web server (depends on socket activation)
+1. `authelia` - Authentication service (automatically starts its PostgreSQL database)
+2. `caddy` - Web server (depends on socket activation)
 
 ## systemd Management
 
 ```bash
 # Start services (as user, not root)
 systemctl --user start caddy.container
-systemctl --user start authelia-postgres.container
 systemctl --user start authelia.container
 
 # Enable auto-start on boot
 systemctl --user enable caddy.container
-systemctl --user enable authelia-postgres.container
 systemctl --user enable authelia.container
 
 # View logs
@@ -173,7 +168,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## License
 
-ISC License - See [LICENSE](LICENSE) for details
+MIT License - See [LICENSE](LICENSE) for details
 
 ## Links
 

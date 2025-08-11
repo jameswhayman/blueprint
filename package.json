@@ -20,7 +20,7 @@
   },
   "keywords": ["caddy", "authelia", "systemd", "containers", "deployment", "cli"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "description": "CLI tool for scaffolding containerized deployments with Caddy and Authelia",
   "dependencies": {
     "argon2": "^0.43.1",
