@@ -85,11 +85,6 @@ export const initCommand = new Command('init')
           validate: validateStrongPassword
         },
         {
-          type: 'password',
-          name: 'adminPasswordConfirm',
-          message: 'Confirm admin password:'
-        },
-        {
           type: 'input',
           name: 'smtpHost',
           message: 'SMTP Host:',
@@ -128,27 +123,6 @@ export const initCommand = new Command('init')
       config = { ...config, ...answers };
       config.useHttps = true; // Always use HTTPS
       config.email = config.email || `admin@${config.domain}`;
-
-      // Check password confirmation after all prompts
-      while (config.adminPassword !== config.adminPasswordConfirm) {
-        console.log(chalk.red('Passwords do not match. Please try again.'));
-        // @ts-ignore - inquirer types are complex, but this works at runtime
-        const passwordRetry = await inquirer.prompt([
-          {
-            type: 'password',
-            name: 'adminPassword',
-            message: 'Admin password:',
-            validate: validateStrongPassword
-          },
-          {
-            type: 'password',
-            name: 'adminPasswordConfirm',
-            message: 'Confirm admin password:'
-          }
-        ]);
-        config.adminPassword = passwordRetry.adminPassword;
-        config.adminPasswordConfirm = passwordRetry.adminPasswordConfirm;
-      }
     } else {
       // Non-interactive mode - use defaults (will need SMTP setup later)
       config.name = config.name || 'my-deployment';
