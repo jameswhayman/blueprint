@@ -17,10 +17,6 @@ export const initCommand = new Command('init')
     let config: any = {
       name: options.name,
       directory: options.directory,
-      services: {
-        caddy: true,
-        authelia: true
-      },
       domain: 'example.local'
     };
 
@@ -44,15 +40,6 @@ export const initCommand = new Command('init')
           name: 'email',
           message: 'Admin email:',
           default: (answers: any) => `admin@${answers.domain || 'example.local'}`
-        },
-        {
-          type: 'checkbox',
-          name: 'services',
-          message: 'Select core services to include:',
-          choices: [
-            { name: 'Caddy (Web Server)', value: 'caddy', checked: true },
-            { name: 'Authelia (Authentication)', value: 'authelia', checked: true }
-          ]
         },
         {
           type: 'input',
@@ -88,10 +75,6 @@ export const initCommand = new Command('init')
       ]);
 
       config = { ...config, ...answers };
-      config.services = {
-        caddy: answers.services.includes('caddy'),
-        authelia: answers.services.includes('authelia')
-      };
       config.useHttps = true; // Always use HTTPS
       config.email = config.email || `admin@${config.domain}`;
     } else {
@@ -117,20 +100,16 @@ export const initCommand = new Command('init')
       await fs.mkdir(path.join(deployDir, 'secrets'), { recursive: true });
       await fs.mkdir(path.join(deployDir, 'backup'), { recursive: true });
 
-      if (config.services.caddy) {
-        console.log(chalk.green('✓ Generating Caddy configuration...'));
-        await generateCaddyfile(deployDir, config);
-        await generateSystemdUnits(deployDir, 'caddy', config);
-      }
+      console.log(chalk.green('✓ Generating Caddy configuration...'));
+      await generateCaddyfile(deployDir, config);
+      await generateSystemdUnits(deployDir, 'caddy', config);
 
-      if (config.services.authelia) {
-        console.log(chalk.green('✓ Generating Authelia configuration...'));
-        await generateAutheliaConfig(deployDir, config);
-        await generateSystemdUnits(deployDir, 'authelia', config);
-        
-        console.log(chalk.green('✓ Generating Authelia PostgreSQL database...'));
-        await generateSystemdUnits(deployDir, 'authelia-postgres', config);
-      }
+      console.log(chalk.green('✓ Generating Authelia configuration...'));
+      await generateAutheliaConfig(deployDir, config);
+      await generateSystemdUnits(deployDir, 'authelia', config);
+      
+      console.log(chalk.green('✓ Generating Authelia PostgreSQL database...'));
+      await generateSystemdUnits(deployDir, 'authelia-postgres', config);
 
 
       // Generate initial secrets with SMTP configuration
@@ -143,14 +122,7 @@ export const initCommand = new Command('init')
       console.log(`  2. blueprint auth add-user`);
       console.log(`  3. systemctl --user daemon-reload`);
       
-      let startCommand = 'systemctl --user start';
-      if (config.services.caddy) startCommand += ' caddy.container';
-      if (config.services.authelia) {
-        startCommand += ' authelia-postgres.container';
-        startCommand += ' authelia.container';
-      }
-      
-      console.log(`  5. ${startCommand}`);
+      console.log(`  5. systemctl --user start caddy.container authelia-postgres.container authelia.container`);
     } catch (error) {
       console.error(chalk.red('Error creating deployment:'), error);
       process.exit(1);

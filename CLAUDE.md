@@ -223,6 +223,7 @@ docs: update installation instructions for global CLI
 
 ### Version History with Commits
 
+- `v1.1.3`: Removed core services selection (Caddy + Authelia always included)
 - `v1.1.2`: Admin email now uses project domain automatically
   - `feat: implement blueprint CLI with SMTP integration and domain-aware configuration`
 - `v1.1.1`: Updated default SMTP provider to Mailgun EU
