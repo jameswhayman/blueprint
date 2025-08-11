@@ -10,7 +10,7 @@
 
 > **Opinionated Self-Hosting Platform** - Deploy a complete stack of open-source services with built-in authentication and HTTPS
 
-[![Version](https://img.shields.io/badge/version-1.2.6-blue.svg)](https://github.com/jameswhayman/blueprint)
+[![Version](https://img.shields.io/badge/version-1.2.10-blue.svg)](https://github.com/jameswhayman/blueprint)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org)
 
@@ -34,12 +34,14 @@ npm install -g blueprint
 # Create a new deployment
 blueprint init --name my-platform
 
-# Start core services
-blueprint services start caddy
-blueprint services start authelia
+# Automatically set up systemd links and start services
+# (Blueprint will prompt to do this during init)
 
-# Add a service (coming soon)
-blueprint service add nextcloud
+# Or manually start core services
+blueprint services start authelia-postgres authelia caddy
+
+# Add verbose logging for debugging
+blueprint -v services logs authelia
 ```
 
 ## Core Infrastructure
@@ -58,6 +60,7 @@ Blueprint provides an opinionated stack with two essential services that power e
 - User and group management
 - Session management across services
 - PostgreSQL backend (auto-configured)
+- Advanced secret management with podman integration
 
 ## Features
 
@@ -66,6 +69,7 @@ Blueprint provides an opinionated stack with two essential services that power e
 - **Consistent Patterns** - Every service follows the same deployment model
 - **Easy Scaling** - Add new services with a single command
 - **Unified Management** - One tool to control your entire self-hosted infrastructure
+- **Advanced Secret Management** - Integrated podman secrets with mixed file-based and environment variable approaches
 
 ## Installation
 
@@ -142,8 +146,7 @@ my-platform/
 │   ├── *.volume         # Volume definitions
 │   ├── Caddyfile        # Caddy routing configuration
 │   └── authelia-config/ # Authelia configuration
-├── secrets/             # Platform secrets (git-ignored)
-│   └── *.secret        # Individual secret files (600 permissions)
+├── backups/             # Automatic backups during setup
 └── user/               # User systemd units
     └── *.socket        # Socket activation units
 ```
@@ -167,13 +170,31 @@ journalctl --user -u caddy.container -f
 
 ## Security Features
 
-- **File-based secrets** with 600 permissions
-- **Argon2id password hashing**
+- **Podman secret management** with mixed file-based and environment variable approaches
+- **Argon2id password hashing** for user credentials
 - **Rate limiting** and brute-force protection
-- **Secure session management**
-- **TLS 1.2+ enforcement**
-- **HTTPS-only by default**
-- **Automatic certificate renewal**
+- **Secure session management** with automatic expiry
+- **TLS 1.2+ enforcement** for all communications
+- **HTTPS-only by default** with automatic certificate management
+- **Automatic certificate renewal** via Let's Encrypt
+- **Container isolation** with systemd security features
+
+## Recent Updates (v1.2.10)
+
+🔧 **Major Authelia Configuration Overhaul**
+- Fixed all Authelia configuration issues and startup errors
+- Implemented proper secret management with podman integration
+- Updated networking from pasta to podman bridge for inter-container communication
+- Streamlined deployment structure (removed unnecessary secrets directory)
+- Added verbose mode (`-v`) for detailed debugging output
+- Automatic deployment setup during initialization
+
+🛠️ **Technical Improvements**
+- Mixed secret approach: file-based for sensitive data, environment variables for configuration
+- Reduced secret count from 11 to 10 optimized secrets
+- Fixed container networking for proper hostname resolution
+- Updated to latest Authelia 4.39+ environment variable format
+- Removed deprecated configuration options
 
 ## Roadmap
 
