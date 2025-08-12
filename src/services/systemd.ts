@@ -3,12 +3,16 @@ import path from 'path';
 import { caddyContainerUnit, caddySocketUnit, caddyDataVolume, caddyConfigVolume } from '../templates/systemd/caddy.js';
 import { autheliaContainerUnit, autheliaDataVolume } from '../templates/systemd/authelia.js';
 import { autheliaPostgresContainerUnit, autheliaPostgresDataVolume } from '../templates/systemd/authelia-postgres.js';
+import { coreNetworkUnit, addonNetworkUnit } from '../templates/systemd/networks.js';
 
 export async function generateSystemdUnits(deployDir: string, service: string, config: any) {
   const containersDir = path.join(deployDir, 'containers');
   const userDir = path.join(deployDir, 'user');
 
   switch (service) {
+    case 'networks':
+      await generateNetworkUnits(containersDir);
+      break;
     case 'caddy':
       await generateCaddySystemdUnits(containersDir, userDir, config);
       break;
@@ -40,5 +44,10 @@ async function generateAutheliaPostgresSystemdUnits(containersDir: string, confi
   
   await fs.writeFile(path.join(containersDir, 'authelia-postgres.container'), autheliaPostgresContainerUnit(secretsDir));
   await fs.writeFile(path.join(containersDir, 'authelia-postgres-data.volume'), autheliaPostgresDataVolume);
+}
+
+async function generateNetworkUnits(containersDir: string) {
+  await fs.writeFile(path.join(containersDir, 'core.network'), coreNetworkUnit);
+  await fs.writeFile(path.join(containersDir, 'addon.network'), addonNetworkUnit);
 }
 

@@ -1,17 +1,15 @@
 export const autheliaContainerUnit = (containersDir: string, secretsDir: string) => `[Unit]
 Description=Authelia Authentication Server
-After=network-online.target authelia-postgres.container
+After=network-online.target authelia-postgres.container core.network
 Wants=network-online.target
-Requires=authelia-postgres.container
-DefaultDependencies=no
+Requires=authelia-postgres.container core.network
 
 [Container]
 ContainerName=authelia
 Image=docker.io/authelia/authelia:4
 Volume=${containersDir}/authelia-config:/config:ro,z
 Volume=authelia-data:/data
-Network=podman
-PublishPort=9091:9091
+Network=core
 Secret=JWT_SECRET
 Secret=SESSION_SECRET
 Secret=STORAGE_ENCRYPTION_KEY

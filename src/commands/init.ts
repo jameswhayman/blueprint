@@ -160,6 +160,9 @@ export const initCommand = new Command('init')
       await fs.mkdir(path.join(deployDir, 'user'), { recursive: true });
       await fs.mkdir(path.join(deployDir, 'backups'), { recursive: true });
 
+      console.log(chalk.green('✓ Generating network configurations...'));
+      await generateSystemdUnits(deployDir, 'networks', config);
+
       console.log(chalk.green('✓ Generating Caddy configuration...'));
       await generateCaddyfile(deployDir, config);
       await generateSystemdUnits(deployDir, 'caddy', config);

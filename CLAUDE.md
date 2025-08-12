@@ -90,6 +90,10 @@ blueprint domain list
 
 ### Container Management
 ```bash
+# Start networks first (they auto-start with containers, but can be started explicitly)
+systemctl --user start core-network.service
+systemctl --user start addon-network.service
+
 # Start containers (as user, not root)
 systemctl --user start caddy.container
 systemctl --user start authelia-postgres.container  # Start database first
@@ -133,6 +137,7 @@ systemctl --user daemon-reload
 - `containers/`: All container definitions and configurations
   - `*.container`: systemd container unit files
   - `*.volume`: Volume definitions for persistent data
+  - `*.network`: Network definitions for service isolation
   - `Caddyfile`: Caddy web server configuration
   - `authelia-config/`: Authelia configuration files
 - `user/`: User-level systemd configurations (socket units)
@@ -145,6 +150,7 @@ systemctl --user daemon-reload
 - **File**: `containers/Caddyfile`
 - **Purpose**: Defines web server routes, HTTPS settings, and reverse proxy rules
 - **Socket Activation**: Uses systemd socket at file descriptor 3
+- **Note**: Socket units don't support `PartOf=` directive (see [systemd.socket documentation](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html))
 
 ### Authelia Configuration  
 - **File**: `containers/authelia-config/configuration.yml`

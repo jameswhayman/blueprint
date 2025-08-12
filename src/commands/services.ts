@@ -22,33 +22,16 @@ servicesCommand
   .description('List all services')
   .action(async () => {
     try {
-      // First try with --type=container (newer systemd with Podman integration)
-      try {
-        const cmd = 'systemctl --user list-units --type=container --all --no-pager';
-        logCommand(cmd);
-        const { stdout } = await execAsync(cmd);
-        logInfo('Container Services:');
+      // List all service and socket units
+      const cmd = 'systemctl --user list-units --type=service,socket --all --no-pager';
+      logCommand(cmd);
+      const { stdout } = await execAsync(cmd);
+      
+      if (stdout.trim()) {
+        logInfo('Services and Sockets:');
         console.log(stdout);
-        return;
-      } catch (containerError: any) {
-        // If container type not available, fall back to pattern matching
-        if (containerError.stderr && containerError.stderr.includes('Unknown unit type')) {
-          logVerbose('Container type not available, falling back to pattern matching');
-          const cmd = 'systemctl --user list-units --all --no-pager | grep -E "\\.container|caddy|authelia|postgres" || true';
-          logCommand(cmd);
-          const { stdout } = await execAsync(cmd);
-          
-          if (stdout.trim()) {
-            logInfo('Container Services:');
-            console.log(stdout);
-          } else {
-            logWarning('No container services found.');
-            console.log(chalk.cyan('Hint: Container services typically end with .container'));
-            console.log(chalk.cyan('Example: systemctl --user start caddy.container'));
-          }
-          return;
-        }
-        throw containerError;
+      } else {
+        logWarning('No services or sockets found.');
       }
     } catch (error) {
       logError('Error listing services:', error);
