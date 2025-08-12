@@ -11,6 +11,7 @@ import { authCommand } from './commands/auth.js';
 import { secretsCommand } from './commands/secrets.js';
 import { domainCommand } from './commands/domain.js';
 import { systemctlCommand, systemCommand } from './commands/systemctl.js';
+import { resetCommand } from './commands/reset.js';
 import { setVerbose } from './utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,6 +39,7 @@ program.addCommand(secretsCommand);
 program.addCommand(domainCommand);
 program.addCommand(systemctlCommand);
 program.addCommand(systemCommand);
+program.addCommand(resetCommand);
 
 program.parse();
 
