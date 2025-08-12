@@ -82,7 +82,7 @@ export const initCommand = new Command('init')
           type: 'input',
           name: 'adminUsername',
           message: 'Admin username:',
-          default: 'sysadmin',
+          default: 'admin',
           validate: (input: string) => {
             const trimmed = input.trim();
             if (!trimmed) return 'Username is required';
@@ -152,7 +152,7 @@ export const initCommand = new Command('init')
     } else {
       // Non-interactive mode - use defaults (will need SMTP setup later)
       config.name = config.name || 'my-deployment';
-      config.adminUsername = config.adminUsername || 'sysadmin';
+      config.adminUsername = config.adminUsername || 'admin';
       config.email = config.email || `${config.adminUsername}@${config.domain}`;
       config.useHttps = true; // Always use HTTPS
       config.smtpHost = 'smtp.eu.mailgun.org';
