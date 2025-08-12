@@ -80,9 +80,22 @@ export const initCommand = new Command('init')
         },
         {
           type: 'input',
+          name: 'adminUsername',
+          message: 'Admin username:',
+          default: 'sysadmin',
+          validate: (input: string) => {
+            const trimmed = input.trim();
+            if (!trimmed) return 'Username is required';
+            if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) return 'Username can only contain letters, numbers, underscores and hyphens';
+            if (trimmed.length < 3) return 'Username must be at least 3 characters';
+            return true;
+          }
+        },
+        {
+          type: 'input',
           name: 'email',
           message: 'Admin email:',
-          default: (answers: any) => `admin@${answers.domain || 'example.local'}`
+          default: (answers: any) => `${answers.adminUsername || 'admin'}@${answers.domain || 'example.local'}`
         },
         {
           type: 'input',
@@ -135,11 +148,12 @@ export const initCommand = new Command('init')
 
       config = { ...config, ...answers };
       config.useHttps = true; // Always use HTTPS
-      config.email = config.email || `admin@${config.domain}`;
+      config.email = config.email || `${config.adminUsername}@${config.domain}`;
     } else {
       // Non-interactive mode - use defaults (will need SMTP setup later)
       config.name = config.name || 'my-deployment';
-      config.email = config.email || `admin@${config.domain}`;
+      config.adminUsername = config.adminUsername || 'sysadmin';
+      config.email = config.email || `${config.adminUsername}@${config.domain}`;
       config.useHttps = true; // Always use HTTPS
       config.smtpHost = 'smtp.eu.mailgun.org';
       config.smtpPort = 587;
@@ -181,7 +195,7 @@ export const initCommand = new Command('init')
 
       console.log(chalk.green('\n✅ Deployment initialized successfully!'));
       console.log(chalk.blue(`\n📋 Admin Account Created:`));
-      console.log(`   Username: admin`);
+      console.log(`   Username: ${config.adminUsername}`);
       console.log(`   Email: ${config.email}`);
       console.log(`   Display Name: ${config.adminDisplayName}`);
       

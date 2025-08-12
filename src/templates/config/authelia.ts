@@ -69,7 +69,7 @@ export const autheliaConfigTemplate = (config: any) => ({
 
 export const autheliaUsersDatabaseTemplate = (adminPassword: string, config: any) => ({
   users: {
-    admin: {
+    [config.adminUsername || 'sysadmin']: {
       displayname: config.adminDisplayName || 'Administrator',
       password: adminPassword,
       email: config.email,
