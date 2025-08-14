@@ -150,7 +150,7 @@ servicesCommand
       const { serviceManager } = await import('../services/service-manager.js');
       
       // Import service definitions to register them
-      await import('../services/umami-service.js');
+      await import('../services/umami.js');
       
       const deployDir = process.cwd();
       
@@ -216,7 +216,7 @@ servicesCommand
       const { serviceManager } = await import('../services/service-manager.js');
       
       // Import service definitions to register them
-      await import('../services/umami-service.js');
+      await import('../services/umami.js');
       
       const deployDir = process.cwd();
       
