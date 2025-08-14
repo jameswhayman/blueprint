@@ -42,7 +42,7 @@ export const autheliaConfigTemplate = (config: any) => ({
       {
         domain: config.domain,
         authelia_url: `https://admin.${config.domain}`,
-        default_redirection_url: `https://${config.domain}`
+        default_redirection_url: `https://admin.${config.domain}`
       }
     ]
   },
