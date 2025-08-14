@@ -10,7 +10,7 @@ export interface ServiceConfig {
   networks: string[];
   containers: string[];
   volumes?: string[];
-  secrets?: Record<string, () => string>;
+  secrets?: Record<string, () => string> | Record<string, string>;
   dependencies?: string[];
   caddyfile?: (config: any) => string;
   templates: {
@@ -35,16 +35,10 @@ export class ServiceManager {
     
     logInfo(`Installing ${service.displayName}...`);
     
-    // Step 1: Setup secrets (use custom handler if available)
-    if (service.secrets) {
+    // Step 1: Setup secrets
+    if (service.secrets && !options?.skipSecrets) {
       logVerbose('Creating secrets...');
-      if (serviceName === 'umami') {
-        // Use custom Umami secrets setup to handle DATABASE_URL dependency
-        const { setupUmamiSecrets } = await import('./umami.js');
-        await setupUmamiSecrets();
-      } else {
-        await this.setupSecrets(serviceName, service.secrets, options);
-      }
+      await this.setupSecrets(serviceName, service.secrets, options);
     }
     
     // Step 2: Create networks
@@ -139,12 +133,18 @@ export class ServiceManager {
     return Array.from(this.services.keys());
   }
   
-  private async setupSecrets(serviceName: string, secrets: Record<string, () => string>, options?: any) {
+  private async setupSecrets(serviceName: string, secrets: Record<string, () => string> | Record<string, string>, options?: any) {
     const prefix = serviceName.toUpperCase();
     
-    for (const [key, generator] of Object.entries(secrets)) {
+    for (const [key, valueOrGenerator] of Object.entries(secrets)) {
       const secretName = `${prefix}_${key}`;
-      const value = generator();
+      const value = typeof valueOrGenerator === 'function' ? valueOrGenerator() : valueOrGenerator;
+      
+      // Skip empty values
+      if (!value) {
+        logVerbose(`Skipping empty secret: ${secretName}`);
+        continue;
+      }
       
       // Remove existing secret if it exists
       try {
@@ -157,6 +157,11 @@ export class ServiceManager {
       // Create new secret
       await execCommand(`echo -n "${value}" | podman secret create ${secretName} -`);
     }
+  }
+  
+  // Public method to setup secrets from resolved values
+  async setupSecretsFromConfig(serviceName: string, secretsConfig: Record<string, string>) {
+    return this.setupSecrets(serviceName, secretsConfig);
   }
   
   private async removeSecrets(serviceName: string, secretKeys: string[]) {

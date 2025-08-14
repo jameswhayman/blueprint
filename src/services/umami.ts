@@ -14,25 +14,14 @@ import {
 } from '../templates/systemd/umami-postgres.js';
 import { umamiNetworkUnit } from '../templates/systemd/umami-network.js';
 
-// Define Umami service configuration
-const umamiService: ServiceConfig = {
+// Define Umami service configuration (without secrets)
+const baseUmamiService: Omit<ServiceConfig, 'secrets'> = {
   name: 'umami',
   displayName: 'Umami Analytics',
   networks: ['umami'],
   containers: ['umami-postgres', 'umami'],
   volumes: ['umami-postgres-data', 'umami-data'],
   dependencies: ['caddy'],
-  secrets: {
-    'POSTGRES_DB': () => 'umami',
-    'POSTGRES_USER': () => 'umami',
-    'POSTGRES_PASSWORD': () => generatePassword(),
-    'APP_SECRET': () => generateSecret(),
-    'DATABASE_URL': function() {
-      // This needs to reference the password generated above
-      // We'll handle this specially in the install process
-      return '';
-    }
-  },
   caddyfile: umamiCaddyfileTemplate,
   templates: {
     containers: {
@@ -49,7 +38,28 @@ const umamiService: ServiceConfig = {
   }
 };
 
-// Register the service with the service manager
+// Generate Umami secrets configuration
+export function generateUmamiSecretsConfig(): Record<string, string> {
+  const postgresPassword = generatePassword();
+  const appSecret = generateSecret();
+  const postgresDb = 'umami';
+  const postgresUser = 'umami';
+  const databaseUrl = `postgresql://${postgresUser}:${postgresPassword}@umami-postgres:5432/${postgresDb}`;
+  
+  return {
+    'POSTGRES_DB': postgresDb,
+    'POSTGRES_USER': postgresUser,
+    'POSTGRES_PASSWORD': postgresPassword,
+    'APP_SECRET': appSecret,
+    'DATABASE_URL': databaseUrl
+  };
+}
+
+// Register the service with the service manager (secrets will be generated at install time)
+const umamiService: ServiceConfig = {
+  ...baseUmamiService,
+  secrets: {} // Empty, will be populated at install time
+};
 serviceManager.register(umamiService);
 
 // Custom setup function for Umami secrets (handles DATABASE_URL dependency)
@@ -59,15 +69,31 @@ export async function setupUmamiSecrets() {
   const postgresDb = 'umami';
   const postgresUser = 'umami';
   
-  // Create Podman secrets for Umami PostgreSQL
-  await execCommand(`echo -n "${postgresDb}" | podman secret create UMAMI_POSTGRES_DB -`);
-  await execCommand(`echo -n "${postgresUser}" | podman secret create UMAMI_POSTGRES_USER -`);
-  await execCommand(`echo -n "${postgresPassword}" | podman secret create UMAMI_POSTGRES_PASSWORD -`);
-  await execCommand(`echo -n "${appSecret}" | podman secret create UMAMI_APP_SECRET -`);
+  // List of secrets to create
+  const secrets = [
+    { name: 'UMAMI_POSTGRES_DB', value: postgresDb },
+    { name: 'UMAMI_POSTGRES_USER', value: postgresUser },
+    { name: 'UMAMI_POSTGRES_PASSWORD', value: postgresPassword },
+    { name: 'UMAMI_APP_SECRET', value: appSecret }
+  ];
   
   // Create database URL secret (depends on password)
   const databaseUrl = `postgresql://${postgresUser}:${postgresPassword}@umami-postgres:5432/${postgresDb}`;
-  await execCommand(`echo -n "${databaseUrl}" | podman secret create UMAMI_DATABASE_URL -`);
+  secrets.push({ name: 'UMAMI_DATABASE_URL', value: databaseUrl });
+  
+  // Create each secret, removing existing ones first
+  for (const secret of secrets) {
+    // Remove existing secret if it exists
+    try {
+      await execCommand(`podman secret inspect ${secret.name} >/dev/null 2>&1`);
+      await execCommand(`podman secret rm ${secret.name}`);
+    } catch {
+      // Secret doesn't exist, which is fine
+    }
+    
+    // Create new secret
+    await execCommand(`echo -n "${secret.value}" | podman secret create ${secret.name} -`);
+  }
   
   return {
     postgresDb,

@@ -192,8 +192,17 @@ servicesCommand
         }
       }
       
-      // Install the service
-      await serviceManager.install(service, deployDir, config, options);
+      // Handle special cases for services that need custom secret generation
+      if (service === 'umami') {
+        const { generateUmamiSecretsConfig } = await import('../services/umami.js');
+        const secretsConfig = generateUmamiSecretsConfig();
+        await serviceManager.setupSecretsFromConfig('umami', secretsConfig);
+        // Install without secrets (already handled above)
+        await serviceManager.install(service, deployDir, config, { ...options, skipSecrets: true });
+      } else {
+        // Install the service normally
+        await serviceManager.install(service, deployDir, config, options);
+      }
       
       if (service === 'umami') {
         console.log(chalk.cyan(`   Access at: https://analytics.${config.domain}`));
