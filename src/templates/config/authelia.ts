@@ -41,7 +41,7 @@ export const autheliaConfigTemplate = (config: any) => ({
     cookies: [
       {
         domain: config.domain,
-        authelia_url: `https://auth.${config.domain}`,
+        authelia_url: `https://admin.${config.domain}`,
         default_redirection_url: `https://${config.domain}`
       }
     ]
