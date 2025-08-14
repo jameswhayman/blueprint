@@ -250,7 +250,7 @@ export class ServiceManager {
     // Start networks first
     for (const network of service.networks) {
       if (network !== 'core' && network !== 'addon') {
-        await execCommand(`systemctl --user start ${network}.service`).catch(() => {});
+        await execCommand(`systemctl --user start ${network}-network.service`).catch(() => {});
       }
     }
     
@@ -275,8 +275,8 @@ export class ServiceManager {
     // Stop networks
     for (const network of service.networks) {
       if (network !== 'core' && network !== 'addon') {
-        await execCommand(`systemctl --user stop ${network}.service`).catch(() => {});
-        await execCommand(`systemctl --user disable ${network}.service`).catch(() => {});
+        await execCommand(`systemctl --user stop ${network}-network.service`).catch(() => {});
+        await execCommand(`systemctl --user disable ${network}-network.service`).catch(() => {});
       }
     }
   }
