@@ -161,7 +161,51 @@ export class ServiceManager {
   
   // Public method to setup secrets from resolved values
   async setupSecretsFromConfig(serviceName: string, secretsConfig: Record<string, string>) {
+    // Check for existing secrets first
+    const existingSecrets = await this.checkExistingSecrets(serviceName, Object.keys(secretsConfig));
+    
+    if (existingSecrets.length > 0) {
+      const { default: inquirer } = await import('inquirer');
+      const { default: chalk } = await import('chalk');
+      
+      console.log(chalk.yellow(`\n⚠️  Found existing secrets for ${serviceName}:`));
+      for (const secret of existingSecrets) {
+        console.log(`   - ${secret}`);
+      }
+      
+      const { overwrite } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'overwrite',
+          message: 'Overwrite existing secrets?',
+          default: false
+        }
+      ]);
+      
+      if (!overwrite) {
+        logInfo('Keeping existing secrets. Service may not work properly if secrets are outdated.');
+        return;
+      }
+    }
+    
     return this.setupSecrets(serviceName, secretsConfig);
+  }
+  
+  private async checkExistingSecrets(serviceName: string, secretKeys: string[]): Promise<string[]> {
+    const prefix = serviceName.toUpperCase();
+    const existingSecrets: string[] = [];
+    
+    for (const key of secretKeys) {
+      const secretName = `${prefix}_${key}`;
+      try {
+        await execCommand(`podman secret inspect ${secretName} >/dev/null 2>&1`);
+        existingSecrets.push(secretName);
+      } catch {
+        // Secret doesn't exist
+      }
+    }
+    
+    return existingSecrets;
   }
   
   private async removeSecrets(serviceName: string, secretKeys: string[]) {
@@ -247,36 +291,36 @@ export class ServiceManager {
   }
   
   private async startServices(service: ServiceConfig) {
-    // Start networks first
+    // Start networks first  
     for (const network of service.networks) {
       if (network !== 'core' && network !== 'addon') {
-        await execCommand(`systemctl --user start ${network}-network.network`).catch(() => {});
+        await execCommand(`systemctl --user start ${network}`).catch(() => {});
       }
     }
     
     // Start containers in order
     for (const container of service.containers) {
-      await execCommand(`systemctl --user start ${container}.container`);
+      await execCommand(`systemctl --user start ${container}`);
     }
     
     // Restart Caddy if we added a Caddyfile
     if (service.caddyfile) {
-      await execCommand('systemctl --user restart caddy.container');
+      await execCommand('systemctl --user restart caddy');
     }
   }
   
   private async stopServices(service: ServiceConfig) {
     // Stop containers in reverse order
     for (const container of [...service.containers].reverse()) {
-      await execCommand(`systemctl --user stop ${container}.container`).catch(() => {});
-      await execCommand(`systemctl --user disable ${container}.container`).catch(() => {});
+      await execCommand(`systemctl --user stop ${container}`).catch(() => {});
+      await execCommand(`systemctl --user disable ${container}`).catch(() => {});
     }
     
     // Stop networks
     for (const network of service.networks) {
       if (network !== 'core' && network !== 'addon') {
-        await execCommand(`systemctl --user stop ${network}-network.network`).catch(() => {});
-        await execCommand(`systemctl --user disable ${network}-network.network`).catch(() => {});
+        await execCommand(`systemctl --user stop ${network}`).catch(() => {});
+        await execCommand(`systemctl --user disable ${network}`).catch(() => {});
       }
     }
   }

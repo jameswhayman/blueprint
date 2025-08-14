@@ -33,7 +33,7 @@ const baseUmamiService: Omit<ServiceConfig, 'secrets'> = {
       'umami-data': umamiDataVolume
     },
     networks: {
-      'umami-network': umamiNetworkUnit
+      'umami': umamiNetworkUnit
     }
   }
 };
@@ -64,6 +64,43 @@ serviceManager.register(umamiService);
 
 // Custom setup function for Umami secrets (handles DATABASE_URL dependency)
 export async function setupUmamiSecrets() {
+  // Check for existing secrets first
+  const secretKeys = ['POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'APP_SECRET', 'DATABASE_URL'];
+  const existingSecrets: string[] = [];
+  
+  for (const key of secretKeys) {
+    const secretName = `UMAMI_${key}`;
+    try {
+      await execCommand(`podman secret inspect ${secretName} >/dev/null 2>&1`);
+      existingSecrets.push(secretName);
+    } catch {
+      // Secret doesn't exist
+    }
+  }
+  
+  if (existingSecrets.length > 0) {
+    const { default: inquirer } = await import('inquirer');
+    const { default: chalk } = await import('chalk');
+    
+    console.log(chalk.yellow(`\n⚠️  Found existing Umami secrets:`));
+    for (const secret of existingSecrets) {
+      console.log(`   - ${secret}`);
+    }
+    
+    const { overwrite } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'overwrite',
+        message: 'Overwrite existing secrets?',
+        default: false
+      }
+    ]);
+    
+    if (!overwrite) {
+      console.log(chalk.blue('ℹ Keeping existing secrets. Service may not work properly if secrets are outdated.'));
+      return;
+    }
+  }
   const postgresPassword = generatePassword();
   const appSecret = generateSecret();
   const postgresDb = 'umami';
