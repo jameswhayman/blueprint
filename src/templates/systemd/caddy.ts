@@ -1,7 +1,7 @@
 export const caddyContainerUnit = (containersDir: string) => `[Unit]
 Description=Caddy Web Server
-After=network-online.target caddy.socket core.network addon.network
-Requires=caddy.socket core.network addon.network
+After=network-online.target caddy.socket
+Requires=caddy.socket
 
 [Container]
 ContainerName=caddy
@@ -9,8 +9,10 @@ Image=docker.io/library/caddy:2-alpine
 Volume=caddy-data:/data
 Volume=caddy-config:/config
 Volume=${containersDir}/Caddyfile:/etc/caddy/Caddyfile:ro,z
+Volume=${containersDir}/caddyfiles:/etc/caddy/caddyfiles:ro,z
 Network=core
 Network=addon
+Network=umami
 Exec=/usr/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
 
 [Service]

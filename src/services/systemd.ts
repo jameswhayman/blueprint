@@ -42,7 +42,7 @@ async function generateAutheliaSystemdUnits(containersDir: string, config: any) 
 async function generateAutheliaPostgresSystemdUnits(containersDir: string, config: any) {
   const secretsDir = path.dirname(containersDir) + '/secrets';
   
-  await fs.writeFile(path.join(containersDir, 'authelia-postgres.container'), autheliaPostgresContainerUnit(secretsDir));
+  await fs.writeFile(path.join(containersDir, 'authelia-postgres.container'), autheliaPostgresContainerUnit());
   await fs.writeFile(path.join(containersDir, 'authelia-postgres-data.volume'), autheliaPostgresDataVolume);
 }
 

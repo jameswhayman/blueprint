@@ -1,8 +1,7 @@
-export const autheliaPostgresContainerUnit = (secretsDir: string) => `[Unit]
+export const autheliaPostgresContainerUnit = () => `[Unit]
 Description=PostgreSQL Database for Authelia
-After=network-online.target core.network
+After=network-online.target
 Wants=network-online.target
-Requires=core.network
 
 [Container]
 ContainerName=authelia-postgres
@@ -10,9 +9,9 @@ Image=docker.io/library/postgres:15-alpine
 Volume=authelia-postgres-data:/var/lib/postgresql/data
 Network=core
 Environment=POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
-Secret=POSTGRES_DB,type=env,target=POSTGRES_DB
-Secret=POSTGRES_USER,type=env,target=POSTGRES_USER
-Secret=STORAGE_PASSWORD,type=env,target=POSTGRES_PASSWORD
+Secret=AUTHELIA_POSTGRES_DB,type=env,target=POSTGRES_DB
+Secret=AUTHELIA_POSTGRES_USER,type=env,target=POSTGRES_USER
+Secret=AUTHELIA_POSTGRES_PASSWORD,type=env,target=POSTGRES_PASSWORD
 
 [Service]
 Restart=always

@@ -258,12 +258,17 @@ export const initCommand = new Command('init')
 
 async function generateInitialSecrets(deployDir: string, config: any) {
   const secrets: Record<string, string> = {
-    JWT_SECRET: randomBytes(64).toString('hex'),
-    SESSION_SECRET: randomBytes(64).toString('hex'),
-    STORAGE_ENCRYPTION_KEY: randomBytes(64).toString('hex'),
-    STORAGE_PASSWORD: randomBytes(32).toString('hex'),
-    POSTGRES_DB: 'authelia',
-    POSTGRES_USER: 'authelia',
+    // Authelia-specific secrets (prefixed)
+    AUTHELIA_JWT_SECRET: randomBytes(64).toString('hex'),
+    AUTHELIA_SESSION_SECRET: randomBytes(64).toString('hex'),
+    AUTHELIA_STORAGE_ENCRYPTION_KEY: randomBytes(64).toString('hex'),
+    AUTHELIA_STORAGE_PASSWORD: randomBytes(32).toString('hex'),
+    AUTHELIA_POSTGRES_DB: 'authelia',
+    AUTHELIA_POSTGRES_USER: 'authelia',
+    AUTHELIA_POSTGRES_PASSWORD: randomBytes(32).toString('hex'),
+    AUTHELIA_SMTP_PASSWORD: config.smtpPassword || 'your-mailgun-smtp-password',
+    
+    // Shared SMTP secrets (can be used by multiple services)
     SMTP_ADDRESS: `${config.smtpHost || 'smtp.eu.mailgun.org'}:${config.smtpPort || 587}`,
     SMTP_USERNAME: config.smtpUsername || `no-reply@mg.${config.domain}`,
     SMTP_PASSWORD: config.smtpPassword || 'your-mailgun-smtp-password',

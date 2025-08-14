@@ -3,6 +3,7 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import path from 'path';
 import { logVerbose, logCommand, logInfo, logSuccess, logError, logWarning, setVerbose } from '../utils/logger.js';
 
 const execAsync = promisify(exec);
@@ -137,5 +138,110 @@ servicesCommand
       } catch (error) {
         logError(`Error fetching logs for ${service}:`, error);
       }
+    }
+  });
+
+servicesCommand
+  .command('install <service>')
+  .description('Install an addon service')
+  .option('--shared-smtp', 'Use shared SMTP credentials', true)
+  .action(async (service, options) => {
+    try {
+      const { serviceManager } = await import('../services/service-manager.js');
+      
+      // Import service definitions to register them
+      await import('../services/umami-service.js');
+      
+      const deployDir = process.cwd();
+      
+      // Check if we're in a valid deployment directory
+      try {
+        await import('fs/promises').then(fs => fs.default.access(path.join(deployDir, 'containers')));
+      } catch {
+        logError('Not in a valid deployment directory');
+        console.log(chalk.yellow('Please run this command from your deployment directory'));
+        process.exit(1);
+      }
+      
+      // Load existing config
+      let config: any = {};
+      try {
+        const fs = await import('fs/promises');
+        const caddyfile = await fs.default.readFile(path.join(deployDir, 'containers', 'Caddyfile'), 'utf8');
+        const domainMatch = caddyfile.match(/^([a-zA-Z0-9.-]+) {/m);
+        if (domainMatch) {
+          config.domain = domainMatch[1];
+        }
+      } catch {
+        logWarning('Could not read existing configuration');
+      }
+      
+      // Check if already installed
+      if (await serviceManager.isInstalled(service, deployDir)) {
+        const { confirm } = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'confirm',
+            message: `${service} is already installed. Reinstall?`,
+            default: false
+          }
+        ]);
+        
+        if (!confirm) {
+          process.exit(0);
+        }
+      }
+      
+      // Install the service
+      await serviceManager.install(service, deployDir, config, options);
+      
+      if (service === 'umami') {
+        console.log(chalk.cyan(`   Access at: https://analytics.${config.domain}`));
+        console.log(chalk.yellow('   Default credentials: admin / umami'));
+        console.log(chalk.yellow('   ⚠️  Change the default password immediately!'));
+      }
+      
+    } catch (error) {
+      logError(`Failed to install ${service}:`, error);
+      process.exit(1);
+    }
+  });
+
+servicesCommand
+  .command('remove <service>')
+  .description('Remove an addon service')
+  .option('--keep-data', 'Keep data volumes', false)
+  .action(async (service, options) => {
+    try {
+      const { serviceManager } = await import('../services/service-manager.js');
+      
+      // Import service definitions to register them
+      await import('../services/umami-service.js');
+      
+      const deployDir = process.cwd();
+      
+      if (!(await serviceManager.isInstalled(service, deployDir))) {
+        logWarning(`${service} is not installed`);
+        process.exit(0);
+      }
+      
+      const { confirm } = await inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'confirm',
+          message: `Are you sure you want to remove ${service}?`,
+          default: false
+        }
+      ]);
+      
+      if (!confirm) {
+        process.exit(0);
+      }
+      
+      await serviceManager.remove(service, deployDir, options);
+      
+    } catch (error) {
+      logError(`Failed to remove ${service}:`, error);
+      process.exit(1);
     }
   });

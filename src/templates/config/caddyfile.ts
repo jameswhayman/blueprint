@@ -47,4 +47,7 @@ https://localhost {
     }
     log
 }
+
+# Import addon service configurations
+import /etc/caddy/caddyfiles/*.caddy
 `;
