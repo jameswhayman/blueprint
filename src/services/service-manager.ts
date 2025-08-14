@@ -35,10 +35,16 @@ export class ServiceManager {
     
     logInfo(`Installing ${service.displayName}...`);
     
-    // Step 1: Setup secrets
+    // Step 1: Setup secrets (use custom handler if available)
     if (service.secrets) {
       logVerbose('Creating secrets...');
-      await this.setupSecrets(serviceName, service.secrets, options);
+      if (serviceName === 'umami') {
+        // Use custom Umami secrets setup to handle DATABASE_URL dependency
+        const { setupUmamiSecrets } = await import('./umami.js');
+        await setupUmamiSecrets();
+      } else {
+        await this.setupSecrets(serviceName, service.secrets, options);
+      }
     }
     
     // Step 2: Create networks
